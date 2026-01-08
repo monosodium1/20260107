@@ -1,0 +1,637 @@
+{% extends "base_admin.html" %}
+
+{% block title %}爬虫管理 - Al智能政企瞭望舆情数据采集与分析系统{% endblock %}
+
+{% block extra_css %}
+        .tech-button {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            transition: all 0.3s ease;
+        }
+        .tech-button:hover {
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
+        .status-running {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+{% endblock %}
+
+{% block content %}
+        <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3"> 爬虫管理 </h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="tech-panel p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">爬虫源总数</p>
+                        <p class="text-3xl font-bold text-blue-400" id="totalSources">0</p>
+                    </div>
+                    <i class="fas fa-database text-4xl text-blue-500 opacity-50"></i>
+                </div>
+            </div>
+            <div class="tech-panel p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">活跃源</p>
+                        <p class="text-3xl font-bold text-green-400" id="activeSources">0</p>
+                    </div>
+                    <i class="fas fa-check-circle text-4xl text-green-500 opacity-50"></i>
+                </div>
+            </div>
+            <div class="tech-panel p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">运行任务</p>
+                        <p class="text-3xl font-bold text-yellow-400" id="runningTasks">0</p>
+                    </div>
+                    <i class="fas fa-spinner text-4xl text-yellow-500 opacity-50"></i>
+                </div>
+            </div>
+            <div class="tech-panel p-4 rounded-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">已采集数据</p>
+                        <p class="text-3xl font-bold text-purple-400" id="totalData">0</p>
+                    </div>
+                    <i class="fas fa-chart-line text-4xl text-purple-500 opacity-50"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="tech-panel p-6 rounded-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl text-blue-300"> 爬虫源管理 </h2>
+                    <button onclick="openSourceModal()" class="tech-button py-2 px-4 rounded-lg text-white text-sm">
+                        <i class="fas fa-plus mr-1"></i> 新增源
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-blue-700">
+                                <th class="text-left py-3 px-4 text-gray-400">名称</th>
+                                <th class="text-left py-3 px-4 text-gray-400">类型</th>
+                                <th class="text-left py-3 px-4 text-gray-400">状态</th>
+                                <th class="text-left py-3 px-4 text-gray-400">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sourceTable">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tech-panel p-6 rounded-xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl text-blue-300"> 任务管理 </h2>
+                    <button onclick="openTaskModal()" class="tech-button py-2 px-4 rounded-lg text-white text-sm">
+                        <i class="fas fa-plus mr-1"></i> 新增任务
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-blue-700">
+                                <th class="text-left py-3 px-4 text-gray-400">任务名</th>
+                                <th class="text-left py-3 px-4 text-gray-400">关键词</th>
+                                <th class="text-left py-3 px-4 text-gray-400">状态</th>
+                                <th class="text-left py-3 px-4 text-gray-400">进度</th>
+                                <th class="text-left py-3 px-4 text-gray-400">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskTable">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="tech-panel p-6 rounded-xl mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl text-blue-300"> 采集数据 </h2>
+                <div class="flex space-x-2">
+                    <select id="taskFilter" class="bg-gray-800 text-white p-2 rounded-lg border border-gray-600">
+                        <option value="">所有任务</option>
+                    </select>
+                    <button onclick="loadData()" class="tech-button py-2 px-4 rounded-lg text-white text-sm">
+                        <i class="fas fa-sync mr-1"></i> 刷新
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-blue-700">
+                            <th class="text-left py-3 px-4 text-gray-400">标题</th>
+                            <th class="text-left py-3 px-4 text-gray-400">URL</th>
+                            <th class="text-left py-3 px-4 text-gray-400">来源</th>
+                            <th class="text-left py-3 px-4 text-gray-400">采集时间</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    <div id="sourceModal" class="modal">
+        <div class="tech-panel p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl text-blue-300 mb-4" id="sourceModalTitle">新增爬虫源</h3>
+            <form id="sourceForm">
+                <input type="hidden" id="sourceId">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-300">源名称 *</label>
+                        <input type="text" id="sourceName" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-300">源类型 *</label>
+                        <select id="sourceType" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" required onchange="toggleSourceType()">
+                            <option value="custom">自定义爬虫</option>
+                            <option value="baidu">百度搜索</option>
+                            <option value="google">Google搜索</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">描述</label>
+                    <textarea id="sourceDescription" rows="2" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" placeholder="请输入爬虫源描述..."></textarea>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">URL模板 *</label>
+                    <input type="text" id="sourceUrl" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" required placeholder="支持变量: {keyword}, {page}, {limit}">
+                    <p class="text-xs text-gray-400 mt-1">示例: https://example.com/search?q={keyword}&page={page}</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-300">请求方法</label>
+                        <select id="sourceMethod" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white">
+                            <option value="GET">GET</option>
+                            <option value="POST">POST</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-300">状态</label>
+                        <select id="sourceStatus" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white">
+                            <option value="active">活跃</option>
+                            <option value="inactive">停用</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">请求头（JSON格式）</label>
+                    <textarea id="sourceHeaders" rows="3" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white font-mono text-sm" placeholder='{"User-Agent": "...", "Authorization": "..."}'></textarea>
+                </div>
+
+                <div class="mb-4" id="bodyTemplateSection">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">请求体模板（POST方法使用，JSON格式）</label>
+                    <textarea id="sourceBodyTemplate" rows="3" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white font-mono text-sm" placeholder='{"keyword": "{keyword}", "page": {page}}'></textarea>
+                </div>
+
+                <div class="border-t border-blue-700 pt-4 mt-4">
+                    <h4 class="text-lg text-blue-300 mb-3">数据提取配置</h4>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2 text-gray-300">数据选择器（JSON格式）</label>
+                        <textarea id="sourceDataSelector" rows="2" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white font-mono text-sm" placeholder='{"type": "css", "selector": "div.result"}'></textarea>
+                        <p class="text-xs text-gray-400 mt-1">定义如何定位数据项，type可选: css, xpath</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-300">标题选择器</label>
+                            <input type="text" id="sourceTitleSelector" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" placeholder="h3.title">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-300">URL选择器</label>
+                            <input type="text" id="sourceUrlSelector" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" placeholder="a.link">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-300">摘要选择器</label>
+                            <input type="text" id="sourceSummarySelector" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" placeholder="div.summary">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2 text-gray-300">图片选择器</label>
+                            <input type="text" id="sourceImageSelector" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" placeholder="img.cover">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 mt-6">
+                    <button type="button" onclick="closeSourceModal()" class="py-2 px-4 rounded-lg bg-gray-600 text-white hover:bg-gray-700">取消</button>
+                    <button type="submit" class="tech-button py-2 px-4 rounded-lg text-white">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="taskModal" class="modal">
+        <div class="tech-panel p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl text-blue-300 mb-4">新增爬虫任务</h3>
+            <form id="taskForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">任务名称</label>
+                    <input type="text" id="taskName" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" required>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">爬虫源</label>
+                    <select id="taskSource" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" required>
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">搜索关键词</label>
+                    <input type="text" id="taskKeyword" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white" required>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-300">起始页</label>
+                        <input type="number" id="taskPage" value="1" min="1" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2 text-gray-300">总页数</label>
+                        <input type="number" id="taskPages" value="1" min="1" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2 text-gray-300">每页数量</label>
+                    <input type="number" id="taskLimit" value="10" min="1" max="50" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="closeTaskModal()" class="py-2 px-4 rounded-lg bg-gray-600 text-white hover:bg-gray-700">取消</button>
+                    <button type="submit" class="tech-button py-2 px-4 rounded-lg text-white">创建任务</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        let refreshInterval;
+
+        $(document).ready(function() {
+            loadStats();
+            loadSources();
+            loadTasks();
+            loadData();
+            startAutoRefresh();
+        });
+
+        function startAutoRefresh() {
+            refreshInterval = setInterval(function() {
+                loadStats();
+                loadTasks();
+            }, 3000);
+        }
+
+        function loadStats() {
+            $.get('/api/crawler/stats', function(data) {
+                $('#totalSources').text(data.total_sources);
+                $('#activeSources').text(data.active_sources);
+                $('#runningTasks').text(data.running_tasks);
+                $('#totalData').text(data.total_data);
+            });
+        }
+
+        function loadSources() {
+            $.get('/api/crawler/sources', function(data) {
+                let html = '';
+                data.sources.forEach(function(source) {
+                    const statusClass = source.status === 'active' ? 'text-green-400' : 'text-gray-400';
+                    const statusText = source.status === 'active' ? '活跃' : '停用';
+                    html += `
+                        <tr class="border-b border-blue-800">
+                            <td class="py-3 px-4">${source.name}</td>
+                            <td class="py-3 px-4">${source.source_type}</td>
+                            <td class="py-3 px-4 ${statusClass}">${statusText}</td>
+                            <td class="py-3 px-4">
+                                <button onclick="editSource(${source.id})" class="text-blue-400 hover:text-blue-300 mr-2">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteSource(${source.id})" class="text-red-400 hover:text-red-300">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                $('#sourceTable').html(html);
+            });
+        }
+
+        function loadTasks() {
+            $.get('/api/crawler/tasks', function(data) {
+                let html = '';
+                data.tasks.forEach(function(task) {
+                    const statusClass = task.status === 'running' ? 'text-yellow-400 status-running' : 
+                                       task.status === 'completed' ? 'text-green-400' : 
+                                       task.status === 'failed' ? 'text-red-400' : 'text-gray-400';
+                    const statusText = task.status === 'running' ? '运行中' : 
+                                       task.status === 'completed' ? '已完成' : 
+                                       task.status === 'failed' ? '失败' : '待执行';
+                    
+                    let actionButtons = '';
+                    if (task.status === 'running') {
+                        actionButtons = `<button onclick="stopTask(${task.id})" class="text-red-400 hover:text-red-300 mr-2">
+                            <i class="fas fa-stop"></i>
+                        </button>`;
+                    } else if (task.status === 'pending' || task.status === 'failed') {
+                        actionButtons = `<button onclick="runTask(${task.id})" class="text-green-400 hover:text-green-300 mr-2">
+                            <i class="fas fa-play"></i>
+                        </button>`;
+                    }
+                    
+                    html += `
+                        <tr class="border-b border-blue-800">
+                            <td class="py-3 px-4">${task.task_name}</td>
+                            <td class="py-3 px-4">${task.keyword}</td>
+                            <td class="py-3 px-4 ${statusClass}">${statusText}</td>
+                            <td class="py-3 px-4">${task.progress || 0}%</td>
+                            <td class="py-3 px-4">
+                                ${actionButtons}
+                                <button onclick="deleteTask(${task.id})" class="text-red-400 hover:text-red-300">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                $('#taskTable').html(html);
+            });
+        }
+
+        function loadData() {
+            $.get('/api/crawler/data', function(data) {
+                let html = '';
+                data.data.forEach(function(item) {
+                    html += `
+                        <tr class="border-b border-blue-800">
+                            <td class="py-3 px-4">${item.title}</td>
+                            <td class="py-3 px-4">
+                                <a href="${item.url}" target="_blank" class="text-blue-400 hover:text-blue-300">
+                                    ${item.url.substring(0, 50)}...
+                                </a>
+                            </td>
+                            <td class="py-3 px-4">${item.source}</td>
+                            <td class="py-3 px-4">${item.collected_at}</td>
+                        </tr>
+                    `;
+                });
+                $('#dataTable').html(html);
+            });
+        }
+
+        function openSourceModal() {
+            $('#sourceModal').addClass('show');
+            $('#sourceForm')[0].reset();
+            $('#sourceId').val('');
+            $('#sourceModalTitle').text('新增爬虫源');
+        }
+
+        function closeSourceModal() {
+            $('#sourceModal').removeClass('show');
+        }
+
+        function editSource(id) {
+            $.get('/api/crawler/sources/' + id, function(source) {
+                $('#sourceId').val(source.id);
+                $('#sourceName').val(source.name);
+                $('#sourceType').val(source.source_type);
+                $('#sourceDescription').val(source.description || '');
+                $('#sourceUrl').val(source.url || '');
+                $('#sourceMethod').val(source.method || 'GET');
+                $('#sourceStatus').val(source.status);
+                $('#sourceHeaders').val(source.headers || '');
+                $('#sourceBodyTemplate').val(source.body_template || '');
+                $('#sourceDataSelector').val(source.data_selector || '');
+                $('#sourceTitleSelector').val(source.title_selector || '');
+                $('#sourceUrlSelector').val(source.url_selector || '');
+                $('#sourceSummarySelector').val(source.summary_selector || '');
+                $('#sourceImageSelector').val(source.image_selector || '');
+                
+                $('#sourceModalTitle').text('编辑爬虫源');
+                $('#sourceModal').addClass('show');
+            });
+        }
+
+        function deleteSource(id) {
+            if (confirm('确定要删除此爬虫源吗？')) {
+                $.ajax({
+                    url: '/api/crawler/sources/' + id,
+                    type: 'DELETE',
+                    success: function() {
+                        loadSources();
+                        loadStats();
+                    }
+                });
+            }
+        }
+
+        function toggleSourceType() {
+            const type = $('#sourceType').val();
+            if (type === 'baidu') {
+                $('#sourceUrl').val('https://www.baidu.com/s?wd={keyword}&pn={page}&rn={limit}');
+                $('#sourceMethod').val('GET');
+                $('#sourceHeaders').val('{"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}');
+                $('#sourceDataSelector').val('{"type": "css", "selector": "div.result"}');
+                $('#sourceTitleSelector').val('h3 a');
+                $('#sourceUrlSelector').val('h3 a');
+                $('#sourceSummarySelector').val('div.c-abstract');
+                $('#sourceImageSelector').val('');
+            } else if (type === 'google') {
+                $('#sourceUrl').val('https://www.google.com/search?q={keyword}&start={page}');
+                $('#sourceMethod').val('GET');
+                $('#sourceHeaders').val('{"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}');
+                $('#sourceDataSelector').val('{"type": "css", "selector": "div.g"}');
+                $('#sourceTitleSelector').val('h3');
+                $('#sourceUrlSelector').val('a');
+                $('#sourceSummarySelector').val('div.VwiC3b');
+                $('#sourceImageSelector').val('');
+            } else {
+                $('#sourceUrl').val('');
+                $('#sourceHeaders').val('');
+                $('#sourceDataSelector').val('');
+                $('#sourceTitleSelector').val('');
+                $('#sourceUrlSelector').val('');
+                $('#sourceSummarySelector').val('');
+                $('#sourceImageSelector').val('');
+            }
+        }
+
+        function openTaskModal() {
+            $('#taskModal').addClass('show');
+            $('#taskForm')[0].reset();
+            loadTaskSources();
+        }
+
+        function closeTaskModal() {
+            $('#taskModal').removeClass('show');
+        }
+
+        function loadTaskSources() {
+            $.get('/api/crawler/sources', function(data) {
+                let html = '';
+                data.sources.forEach(function(source) {
+                    if (source.status === 'active') {
+                        html += `<option value="${source.id}">${source.name}</option>`;
+                    }
+                });
+                $('#taskSource').html(html);
+            });
+        }
+
+        function runTask(id) {
+            $.post('/api/crawler/tasks/' + id + '/run', function() {
+                loadTasks();
+            });
+        }
+
+        function stopTask(id) {
+            $.post('/api/crawler/tasks/' + id + '/stop', function() {
+                loadTasks();
+            });
+        }
+
+        function deleteTask(id) {
+            if (confirm('确定要删除此任务吗？')) {
+                $.ajax({
+                    url: '/api/crawler/tasks/' + id,
+                    type: 'DELETE',
+                    success: function() {
+                        loadTasks();
+                        loadStats();
+                    }
+                });
+            }
+        }
+
+        $('#sourceForm').submit(function(e) {
+            e.preventDefault();
+            const id = $('#sourceId').val();
+            
+            let headers = $('#sourceHeaders').val().trim();
+            if (headers) {
+                try {
+                    JSON.parse(headers);
+                } catch (err) {
+                    alert('请求头格式错误，请输入有效的JSON');
+                    return;
+                }
+            }
+            
+            let dataSelector = $('#sourceDataSelector').val().trim();
+            if (dataSelector) {
+                try {
+                    JSON.parse(dataSelector);
+                } catch (err) {
+                    alert('数据选择器格式错误，请输入有效的JSON');
+                    return;
+                }
+            }
+            
+            let bodyTemplate = $('#sourceBodyTemplate').val().trim();
+            if (bodyTemplate) {
+                try {
+                    JSON.parse(bodyTemplate);
+                } catch (err) {
+                    alert('请求体模板格式错误，请输入有效的JSON');
+                    return;
+                }
+            }
+
+            const data = {
+                name: $('#sourceName').val(),
+                source_type: $('#sourceType').val(),
+                description: $('#sourceDescription').val(),
+                url: $('#sourceUrl').val(),
+                method: $('#sourceMethod').val(),
+                status: $('#sourceStatus').val(),
+                headers: headers || null,
+                body_template: bodyTemplate || null,
+                data_selector: dataSelector || null,
+                title_selector: $('#sourceTitleSelector').val() || null,
+                url_selector: $('#sourceUrlSelector').val() || null,
+                summary_selector: $('#sourceSummarySelector').val() || null,
+                image_selector: $('#sourceImageSelector').val() || null
+            };
+
+            if (id) {
+                $.ajax({
+                    url: '/api/crawler/sources/' + id,
+                    type: 'PUT',
+                    data: JSON.stringify(data),
+                    contentType: 'application/json',
+                    success: function() {
+                        closeSourceModal();
+                        loadSources();
+                    }
+                });
+            } else {
+                $.post('/api/crawler/sources', JSON.stringify(data), function() {
+                    closeSourceModal();
+                    loadSources();
+                    loadStats();
+                }, 'json').fail(function() {
+                    $.post('/api/crawler/sources', data, function() {
+                        closeSourceModal();
+                        loadSources();
+                        loadStats();
+                    });
+                });
+            }
+        });
+
+        $('#taskForm').submit(function(e) {
+            e.preventDefault();
+            const data = {
+                source_id: $('#taskSource').val(),
+                task_name: $('#taskName').val(),
+                keyword: $('#taskKeyword').val(),
+                page: $('#taskPage').val(),
+                pages: $('#taskPages').val(),
+                limit: $('#taskLimit').val()
+            };
+
+            $.post('/api/crawler/tasks', JSON.stringify(data), function() {
+                closeTaskModal();
+                loadTasks();
+                loadStats();
+            }, 'json').fail(function() {
+                $.post('/api/crawler/tasks', data, function() {
+                    closeTaskModal();
+                    loadTasks();
+                    loadStats();
+                });
+            });
+        });
+    </script>
+{% endblock %}

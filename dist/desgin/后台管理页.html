@@ -1,0 +1,887 @@
+<html lang="zh-CN"><head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>
+   Al智能政企瞭望舆情数据采集与分析系统
+  </title>
+  <!-- 引入 Tailwind CSS -->
+  <script src="https://res.gemcoder.com/js/reload.js">
+  </script>
+  <script src="https://cdn.tailwindcss.com">
+  </script>
+  <!-- 引入 Font Awesome -->
+  <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- 引入 ECharts -->
+  <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js">
+  </script>
+  <style>
+   /* 科技风背景和字体设置 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0a192f; /* 深蓝色背景，科技感 */
+            color: #e0f7fa; /* 浅青色文字 */
+        }
+        /* 自定义滚动条样式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d2a4f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e40af;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
+        /* 科技感边框和阴影 */
+        .tech-panel {
+            background-color: rgba(10, 30, 55, 0.7); /* 半透明背景 */
+            border: 1px solid #1e40af;
+            box-shadow: 0 0 15px rgba(30, 64, 175, 0.5);
+            backdrop-filter: blur(5px); /* 沉浸式模糊效果 */
+        }
+        .nav-item:hover {
+            background-color: #1e40af;
+            color: #ffffff;
+        }
+        .active-nav {
+            background-color: #1e40af;
+            color: #ffffff;
+            border-left: 4px solid #3b82f6;
+        }
+        /* Echarts 容器基础样式 */
+        .chart-container {
+            width: 100%;
+            height: 300px; /* 默认高度 */
+        }
+  </style>
+ </head>
+ <body class="min-h-screen flex flex-col">
+  <!-- 头部导航栏 -->
+  <header class="bg-[#050e1a] shadow-lg p-4 flex justify-between items-center sticky top-0 z-50 border-b border-blue-800">
+   <div class="text-2xl font-bold text-blue-400 tracking-wider">
+    Al政企瞭望
+    <span class="text-sm text-gray-400 ml-2">
+     舆情数据采集与分析系统
+    </span>
+   </div>
+   <div class="flex items-center space-x-4">
+    <div class="flex items-center text-sm text-green-400" id="network-status">
+     <i class="fas fa-wifi mr-1">
+     </i>
+     网络: 正常
+    </div>
+    <div class="flex items-center text-sm text-green-400" id="system-status">
+     <i class="fas fa-server mr-1">
+     </i>
+     系统: 稳定
+    </div>
+    <button class="p-2 rounded-full hover:bg-blue-700 transition duration-200" title="用户设置">
+     <i class="fas fa-user-circle text-xl text-blue-300">
+     </i>
+    </button>
+   </div>
+  </header>
+  <!-- 主布局容器 -->
+  <div class="flex flex-1 overflow-hidden">
+   <!-- 左侧导航栏 -->
+   <nav class="w-64 bg-[#0a192f] p-4 flex flex-col border-r border-blue-900 transition-all duration-300" id="sidebar">
+    <div class="space-y-2 flex-grow">
+<!-- [MODULE] 导航菜单 -->
+<a class="nav-item active-nav flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="dashboard" href="javascript:void(0);">
+ <i class="fas fa-tachometer-alt w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  后台主页
+ </span>
+</a>
+<!-- [/MODULE] 导航菜单 -->
+<a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="collection" href="javascript:void(0);">
+ <i class="fas fa-cogs w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  采集管理
+ </span>
+</a>
+<!-- 新增：爬虫管理 -->
+<a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="crawler-management" href="javascript:void(0);">
+ <i class="fas fa-bug w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  爬虫管理
+ </span>
+</a>
+<a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="data" href="javascript:void(0);">
+ <i class="fas fa-database w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  数据管理
+ </span>
+</a>
+<!-- 新增：深采管理 -->
+<a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="deep-collection" href="javascript:void(0);">
+ <i class="fas fa-search-dollar w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  深采管理
+ </span>
+</a>
+<!-- 新增：AI模型管理 -->
+<a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="ai-model" href="javascript:void(0);">
+ <i class="fas fa-microchip w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  AI模型管理
+ </span>
+</a>
+<a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="ai-analysis" href="javascript:void(0);">
+ <i class="fas fa-brain w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  AI分析与报告管理
+ </span>
+</a>
+<a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="big-screen" href="javascript:void(0);">
+ <i class="fas fa-desktop w-5 mr-3">
+ </i>
+ <span class="font-medium">
+  Al数智大屏
+ </span>
+</a>
+    </div>
+    <!-- 底部信息/切换 -->
+    <div class="mt-6 pt-4 border-t border-blue-900">
+     <button class="w-full flex items-center justify-center p-2 text-sm text-blue-400 hover:bg-blue-800 rounded transition duration-200" id="toggle-sidebar">
+      <i class="fas fa-angle-double-left mr-2">
+      </i>
+      收起侧边栏
+     </button>
+    </div>
+   </nav>
+   <!-- 主内容区域 -->
+   <main class="flex-1 p-6 overflow-y-auto" id="content-area">
+    <!-- 页面内容容器 -->
+    <div class="w-full h-full" id="page-container">
+     <!-- 默认显示：后台主页 -->
+     <!-- [MODULE] dashboard_后台主页 -->
+     <section class="page-content" id="dashboard-page">
+      <!-- [MODULE] 9a1_后台主页:页面标题与操作 -->
+      <div class="flex justify-between items-center mb-6 pb-3 border-b border-blue-700">
+       <h1 class="text-3xl font-extrabold text-white tracking-wide">
+        系统运行概览
+       </h1>
+       <button class="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-300 transform hover:scale-[1.02]">
+        <i class="fas fa-chart-line mr-2">
+        </i>
+        实时数据刷新
+       </button>
+      </div>
+      <!-- [/MODULE] 9a1_后台主页:页面标题与操作 -->
+      <!-- [MODULE] 3b2_系统状态卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+       <!-- 总数据量卡片 -->
+       <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+        <div class="flex justify-between items-start">
+         <p class="text-sm uppercase text-blue-300 font-semibold">
+          总数据量
+         </p>
+         <i class="fas fa-database text-3xl text-blue-400 opacity-70">
+         </i>
+        </div>
+        <div class="mt-4">
+         <p class="text-4xl font-bold text-white" id="stat-total-data">
+          1,234,567
+         </p>
+         <p class="text-xs text-green-400 mt-1">
+          +12.5% (24h)
+         </p>
+        </div>
+       </div>
+       <!-- 总爬虫量卡片 -->
+       <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+        <div class="flex justify-between items-start">
+         <p class="text-sm uppercase text-blue-300 font-semibold">
+          总爬虫量
+         </p>
+         <i class="fas fa-spider text-3xl text-blue-400 opacity-70">
+         </i>
+        </div>
+        <div class="mt-4">
+         <p class="text-4xl font-bold text-white" id="stat-total-crawls">
+          89,123
+         </p>
+         <p class="text-xs text-yellow-400 mt-1">
+          ~500/h (Avg)
+         </p>
+        </div>
+       </div>
+       <!-- AI引擎状态卡片 -->
+       <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+        <div class="flex justify-between items-start">
+         <p class="text-sm uppercase text-blue-300 font-semibold">
+          AI引擎状态
+         </p>
+         <i class="fas fa-robot text-3xl text-green-400 opacity-70">
+         </i>
+        </div>
+        <div class="mt-4">
+         <p class="text-4xl font-bold text-green-400" id="stat-ai-engine">
+          运行中
+         </p>
+         <p class="text-xs text-gray-400 mt-1">
+          模型版本: V2.1
+         </p>
+        </div>
+       </div>
+       <!-- 网络状态卡片 (重复，但展示系统状态) -->
+       <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+        <div class="flex justify-between items-start">
+         <p class="text-sm uppercase text-blue-300 font-semibold">
+          系统状态
+         </p>
+         <i class="fas fa-heartbeat text-3xl text-red-400 opacity-70">
+         </i>
+        </div>
+        <div class="mt-4">
+         <p class="text-4xl font-bold text-red-400" id="stat-system-health">
+          警告
+         </p>
+         <p class="text-xs text-red-400 mt-1">
+          需关注存储
+         </p>
+        </div>
+       </div>
+      </div>
+      <!-- [/MODULE] 3b2_系统状态卡片 -->
+      <!-- [MODULE] 7c4_图表统计区域 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+       <!-- 左侧：数据采集趋势图 -->
+       <div class="lg:col-span-2 tech-panel p-4 rounded-xl">
+        <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+         <i class="fas fa-chart-line mr-2 text-blue-400">
+         </i>
+         近7日数据采集趋势
+        </h3>
+        <div class="chart-container h-80" id="chart-data-trend">
+         <!-- ECharts 容器 -->
+        </div>
+       </div>
+       <!-- 右侧：AI分析任务分布 -->
+       <div class="lg:col-span-1 tech-panel p-4 rounded-xl">
+        <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+         <i class="fas fa-chart-pie mr-2 text-blue-400">
+         </i>
+         AI分析任务分布
+        </h3>
+        <div class="chart-container h-80" id="chart-ai-distribution">
+         <!-- ECharts 容器 -->
+        </div>
+       </div>
+      </div>
+      <!-- [/MODULE] 7c4_图表统计区域 -->
+      <!-- [MODULE] 1d5_近期操作日志 -->
+      <div class="mt-6 tech-panel p-4 rounded-xl">
+       <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+        <i class="fas fa-history mr-2 text-blue-400">
+        </i>
+        近期系统操作日志
+       </h3>
+       <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-blue-800">
+         <thead>
+          <tr class="text-left text-xs font-medium uppercase tracking-wider text-blue-300 bg-blue-900/30">
+           <th class="px-4 py-3">
+            时间
+           </th>
+           <th class="px-4 py-3">
+            操作用户
+           </th>
+           <th class="px-4 py-3">
+            模块
+           </th>
+           <th class="px-4 py-3">
+            操作描述
+           </th>
+           <th class="px-4 py-3">
+            状态
+           </th>
+          </tr>
+         </thead>
+         <tbody class="divide-y divide-blue-900 text-sm" id="log-table-body">
+          <!-- 日志行将由JS动态插入 -->
+         </tbody>
+        </table>
+       </div>
+       <div class="text-center mt-4">
+        <a class="text-blue-400 hover:text-blue-300 text-sm" href="javascript:void(0);">
+         查看所有日志
+&gt;
+        </a>
+       </div>
+      </div>
+      <!-- [/MODULE] 1d5_近期操作日志 -->
+     </section>
+     <!-- [/MODULE] dashboard_后台主页 -->
+<!-- 采集管理页面 (占位) -->
+<section class="page-content hidden" id="collection-page">
+ <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3">
+  采集管理
+ </h1>
+ <div class="tech-panel p-6 rounded-xl">
+  <h2 class="text-2xl text-blue-300 mb-4">
+   采集任务配置
+  </h2>
+  <p class="text-gray-400">
+   管理和配置数据源爬虫任务。
+  </p>
+  <div class="mt-4 p-4 border border-dashed border-blue-600 rounded-lg">
+   <p class="text-blue-400">
+    待开发：爬虫列表、任务调度、日志查看。
+   </p>
+   <button class="mt-3 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm">
+    <i class="fas fa-plus mr-1">
+    </i>
+    添加新爬虫
+   </button>
+  </div>
+ </div>
+</section>
+<!-- 爬虫管理页面 (新增) -->
+<section class="page-content hidden" id="crawler-management-page">
+ <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3">
+  爬虫管理
+ </h1>
+ <div class="tech-panel p-6 rounded-xl">
+  <h2 class="text-2xl text-blue-300 mb-4">
+   爬虫详情与监控
+  </h2>
+  <p class="text-gray-400">
+   查看和管理所有已配置的爬虫实例的运行状态。
+  </p>
+  <div class="mt-4 p-4 border border-dashed border-blue-600 rounded-lg">
+   <p class="text-blue-400">
+    待开发：爬虫实例列表、运行日志。
+   </p>
+   <button class="mt-3 bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg text-sm">
+    <i class="fas fa-list-alt mr-1">
+    </i>
+    查看爬虫列表
+   </button>
+  </div>
+ </div>
+</section>
+<!-- 数据管理页面 (占位) -->
+<section class="page-content hidden" id="data-page">
+      <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3">
+       数据管理
+      </h1>
+      <div class="tech-panel p-6 rounded-xl">
+       <h2 class="text-2xl text-blue-300 mb-4">
+        数据存储与查询
+       </h2>
+       <p class="text-gray-400">
+        对采集到的舆情数据进行检索、清洗和导出。
+       </p>
+       <div class="mt-4 p-4 border border-dashed border-blue-600 rounded-lg">
+        <p class="text-blue-400">
+         待开发：数据检索界面、数据清洗工具。
+        </p>
+        <button class="mt-3 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg text-sm">
+         <i class="fas fa-search mr-1">
+         </i>
+         快速查询
+        </button>
+       </div>
+      </div>
+     </section>
+     <!-- AI模型管理页面 (新增) -->
+     <section class="page-content hidden" id="ai-model-page">
+      <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3">
+       AI模型管理
+      </h1>
+      <div class="tech-panel p-6 rounded-xl">
+       <h2 class="text-2xl text-blue-300 mb-4">
+        模型配置与版本控制
+       </h2>
+       <p class="text-gray-400">
+        管理用于舆情分析、情感判断等任务的AI模型。
+       </p>
+       <div class="mt-4 p-4 border border-dashed border-blue-600 rounded-lg">
+        <p class="text-blue-400">
+         待开发：模型上传、性能评估。
+        </p>
+        <button class="mt-3 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-sm">
+         <i class="fas fa-upload mr-1">
+         </i>
+         上传新模型
+        </button>
+       </div>
+      </div>
+     </section>
+     <!-- 深采管理页面 (新增) -->
+     <section class="page-content hidden" id="deep-collection-page">
+      <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3">
+       深采管理
+      </h1>
+      <div class="tech-panel p-6 rounded-xl">
+       <h2 class="text-2xl text-blue-300 mb-4">
+        深度采集任务
+       </h2>
+       <p class="text-gray-400">
+        管理需要深度挖掘和持续跟进的特定主题或实体。
+       </p>
+       <div class="mt-4 p-4 border border-dashed border-blue-600 rounded-lg">
+        <p class="text-blue-400">
+         待开发：深采任务配置、进度监控。
+        </p>
+        <button class="mt-3 bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg text-sm">
+         <i class="fas fa-layer-group mr-1">
+         </i>
+         创建深采任务
+        </button>
+       </div>
+      </div>
+     </section>
+     <!-- AI分析与报告管理页面 (占位) -->
+     <section class="page-content hidden" id="ai-analysis-page">
+      <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3">
+       AI分析与报告管理
+      </h1>
+      <div class="tech-panel p-6 rounded-xl">
+       <h2 class="text-2xl text-blue-300 mb-4">
+        AI模型与报告
+       </h2>
+       <p class="text-gray-400">
+        管理AI模型配置，查看和生成分析报告。
+       </p>
+       <div class="mt-4 p-4 border border-dashed border-blue-600 rounded-lg">
+        <p class="text-blue-400">
+         待开发：模型管理、报告生成历史。
+        </p>
+        <button class="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg text-sm">
+         <i class="fas fa-file-alt mr-1">
+         </i>
+         生成新报告
+        </button>
+       </div>
+      </div>
+     </section>
+     <!-- Al数智大屏页面 (占位) -->
+     <section class="page-content hidden" id="big-screen-page">
+      <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3">
+       Al数智大屏
+      </h1>
+      <div class="tech-panel p-6 rounded-xl">
+       <h2 class="text-2xl text-blue-300 mb-4">
+        沉浸式数据可视化
+       </h2>
+       <p class="text-gray-400">
+        专为大屏展示优化的实时舆情态势。
+       </p>
+       <div class="mt-4 p-4 border border-dashed border-blue-600 rounded-lg">
+        <p class="text-blue-400">
+         待开发：全屏模式、实时热力图。
+        </p>
+        <button class="mt-3 bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded-lg text-sm">
+         <i class="fas fa-expand mr-1">
+         </i>
+         进入全屏
+        </button>
+       </div>
+      </div>
+     </section>
+    </div>
+   </main>
+  </div>
+<!-- [JSMOD] eft_页面切换逻辑 -->
+<script id="js-page-switcher">
+ document.addEventListener('DOMContentLoaded', function () {
+ var navLinks = document.querySelectorAll('.nav-item');
+ var pages = document.querySelectorAll('.page-content');
+ function switchPage(pageId) {
+    // 隐藏所有页面
+    pages.forEach(function (page) {
+      page.classList.add('hidden');
+    });
+    // 显示目标页面
+    var targetPage = document.getElementById(pageId);
+    if (targetPage) {
+      targetPage.classList.remove('hidden');
+      // 触发图表初始化或resize（如果页面包含图表）
+      if (pageId === 'dashboard-page') {
+        initializeDashboardCharts();
+      }
+      // 可以在这里添加对新页面的图表初始化逻辑，例如：
+      // if (pageId === 'crawler-management-page') { initializeCrawlerManagementChart(); }
+      // if (pageId === 'deep-collection-page') { initializeDeepCollectionChart(); }
+      // if (pageId === 'ai-model-page') { initializeAIModelChart(); }
+    }
+    // 更新导航栏高亮
+    navLinks.forEach(function (link) {
+      link.classList.remove('active-nav');
+      var dataPage = link.getAttribute('data-page');
+      // 适配新的页面ID，data-page属性值直接对应页面ID的前缀
+      if (dataPage + '-page' === pageId) {
+        link.classList.add('active-nav');
+      }
+    });
+  }
+  navLinks.forEach(function (link) {
+    link.addEventListener('click', function () {
+      var pageKey = this.getAttribute('data-page');
+      switchPage(pageKey + '-page');
+    });
+  });
+  // 默认加载仪表盘
+  switchPage('dashboard-page');
+});
+</script>
+<!-- [/JSMOD] eft_页面切换逻辑 -->
+  <!-- [JSMOD] ght_仪表盘数据和图表逻辑 -->
+  <script id="js-dashboard-logic">
+   document.addEventListener('DOMContentLoaded', function () {
+  var dataTrendChartDiv = document.getElementById('chart-data-trend');
+  var aiDistributionChartDiv = document.getElementById('chart-ai-distribution');
+  var dataTrendChart = null;
+  var aiDistributionChart = null;
+  // --- 模拟数据 ---
+  var mockLogData = [{
+    time: '2024-07-25 10:30:15',
+    user: 'Admin',
+    module: '采集管理',
+    desc: '启动爬虫任务: 财经门户A',
+    status: '成功'
+  }, {
+    time: '2024-07-25 10:25:01',
+    user: 'System',
+    module: 'AI分析',
+    desc: '执行情感分析批处理',
+    status: '成功'
+  }, {
+    time: '2024-07-25 09:55:40',
+    user: 'User001',
+    module: '数据管理',
+    desc: '导出数据: 20240724',
+    status: '成功'
+  }, {
+    time: '2024-07-25 09:10:11',
+    user: 'Admin',
+    module: '采集管理',
+    desc: '停止爬虫任务: 社交媒体B',
+    status: '失败'
+  }, {
+    time: '2024-07-25 08:00:00',
+    user: 'System',
+    module: '系统',
+    desc: '每日数据备份开始',
+    status: '成功'
+  }];
+  var mockTrendData = {
+    days: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+    crawls: [1200, 1550, 1300, 1800, 2100, 900, 1100],
+    data: [15000, 18200, 16500, 22000, 25500, 11000, 14000]
+  };
+  var mockAIData = [{
+    value: 450,
+    name: '情感分析'
+  }, {
+    value: 210,
+    name: '实体识别'
+  }, {
+    value: 150,
+    name: '主题聚类'
+  }, {
+    value: 90,
+    name: '摘要生成'
+  }];
+  // --- 模拟数据结束 ---
+  // 1. 初始化日志表格
+  function renderLogs() {
+    var tbody = document.getElementById('log-table-body');
+    tbody.innerHTML = '';
+    mockLogData.forEach(function (log) {
+      var statusClass = '';
+      if (log.status === '成功') {
+        statusClass = 'text-green-400 bg-green-900/20';
+      } else if (log.status === '失败') {
+        statusClass = 'text-red-400 bg-red-900/20';
+      } else {
+        statusClass = 'text-yellow-400 bg-yellow-900/20';
+      }
+      var row = document.createElement('tr');
+      row.innerHTML = "<td class=\"px-4 py-2 whitespace-nowrap\">".concat(log.time, "</td>\n                        <td class=\"px-4 py-2 whitespace-nowrap\">").concat(log.user, "</td>\n                        <td class=\"px-4 py-2 whitespace-nowrap text-blue-300\">").concat(log.module, "</td>\n                        <td class=\"px-4 py-2\">").concat(log.desc, "</td>\n                        <td class=\"px-4 py-2 whitespace-nowrap\">\n                            <span class=\"px-2 inline-flex text-xs leading-5 font-semibold rounded-full").concat(statusClass, "\">").concat(log.status, "</span>\n                        </td>");
+      tbody.appendChild(row);
+    });
+  }
+  // 2. 初始化数据采集趋势图
+  function initDataTrendChart() {
+    if (!dataTrendChartDiv) return;
+    dataTrendChart = echarts.init(dataTrendChartDiv);
+    var option = {
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: 'rgba(10, 30, 55, 0.9)',
+        borderColor: '#3b82f6',
+        formatter: function formatter(params) {
+          var res = "<div class=\"text-sm text-white\">".concat(params[0].name, "</div>");
+          params.forEach(function (item) {
+            var color = item.color;
+            var seriesName = item.seriesName;
+            var value = item.value.toLocaleString();
+            res += "<div style=\"color:".concat(color, "; margin-top: 4px;\">\n                                            <span style=\"display:inline-block; width:10px; height:10px; border-radius:50%; background-color:").concat(color, "; margin-right: 5px;\"></span>").concat(seriesName, ":").concat(value, "</div>");
+          });
+          return res;
+        }
+      },
+      legend: {
+        data: ['爬虫次数', '数据量'],
+        textStyle: {
+          color: '#e0f7fa'
+        },
+        top: 10
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: mockTrendData.days,
+        axisLine: {
+          lineStyle: {
+            color: '#1e40af'
+          }
+        },
+        axisLabel: {
+          color: '#9ca3af'
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: {
+          lineStyle: {
+            color: '#1e40af'
+          }
+        },
+        axisLabel: {
+          color: '#9ca3af'
+        },
+        splitLine: {
+          lineStyle: {
+            color: '#0d2a4f'
+          }
+        }
+      },
+      series: [{
+        name: '爬虫次数',
+        type: 'line',
+        smooth: true,
+        data: mockTrendData.crawls,
+        itemStyle: {
+          color: '#3b82f6'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+            offset: 0,
+            color: 'rgba(59, 130, 246, 0.3)'
+          }, {
+            offset: 1,
+            color: 'rgba(59, 130, 246, 0)'
+          }])
+        }
+      }, {
+        name: '数据量',
+        type: 'line',
+        smooth: true,
+        data: mockTrendData.data,
+        itemStyle: {
+          color: '#10b981'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+            offset: 0,
+            color: 'rgba(16, 185, 129, 0.3)'
+          }, {
+            offset: 1,
+            color: 'rgba(16, 185, 129, 0)'
+          }])
+        }
+      }]
+    };
+    dataTrendChart.setOption(option);
+  }
+  // 3. 初始化AI分析分布图
+  function initAIDistributionChart() {
+    if (!aiDistributionChartDiv) return;
+    aiDistributionChart = echarts.init(aiDistributionChartDiv);
+    var option = {
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: 'rgba(10, 30, 55, 0.9)',
+        borderColor: '#3b82f6',
+        formatter: "{a} <br/>{b}: {c} ({d}%)"
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left',
+        textStyle: {
+          color: '#e0f7fa'
+        },
+        padding: [20, 0, 0, 0]
+      },
+      series: [{
+        name: 'AI任务分布',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: true,
+        itemStyle: {
+          borderColor: '#0a192f',
+          borderWidth: 2
+        },
+        label: {
+          show: false,
+          position: 'center'
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: '16',
+            fontWeight: 'bold'
+          }
+        },
+        data: mockAIData,
+        color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+      }]
+    };
+    aiDistributionChart.setOption(option);
+  }
+  // 4. 统一初始化函数 (用于页面切换时调用)
+  function initializeDashboardCharts() {
+    // 确保图表容器存在且可见
+    if (dataTrendChartDiv && !dataTrendChart) {
+      initDataTrendChart();
+    }
+    if (aiDistributionChartDiv && !aiDistributionChart) {
+      initAIDistributionChart();
+    }
+
+    // 确保图表在显示时被正确渲染
+    if (dataTrendChart) dataTrendChart.resize({
+      width: dataTrendChartDiv.offsetWidth,
+      height: dataTrendChartDiv.offsetHeight
+    });
+    if (aiDistributionChart) aiDistributionChart.resize({
+      width: aiDistributionChartDiv.offsetWidth,
+      height: aiDistributionChartDiv.offsetHeight
+    });
+  }
+  // 5. 绑定resize事件监听
+  function setupResizeObserver() {
+    var chartContainers = [{
+      div: dataTrendChartDiv,
+      chart: function chart() {
+        return dataTrendChart;
+      }
+    }, {
+      div: aiDistributionChartDiv,
+      chart: function chart() {
+        return aiDistributionChart;
+      }
+    }];
+    chartContainers.forEach(function (_ref) {
+      var div = _ref.div,
+        chart = _ref.chart;
+      if (div) {
+        var resizeObserver = new ResizeObserver(function (entries) {
+          // 仅在图表已初始化时才尝试resize
+          var currentChart = chart();
+          if (currentChart) {
+            var entry = entries[0];
+            // 防止无限变化，只在尺寸实际变化时才调用resize
+            if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+              currentChart.resize({
+                width: entry.contentRect.width,
+                height: entry.contentRect.height
+              });
+            }
+          }
+        });
+        resizeObserver.observe(div);
+      }
+    });
+  }
+  // 初始加载
+  renderLogs();
+  // 延迟初始化，确保DOM完全加载
+  window.addEventListener('load', function () {
+    initializeDashboardCharts();
+    setupResizeObserver();
+  });
+});
+  </script>
+  <!-- [/JSMOD] ght_仪表盘数据和图表逻辑 -->
+  <!-- [JSMOD] zxc_侧边栏切换逻辑 -->
+  <script id="js-sidebar-toggle">
+   document.addEventListener('DOMContentLoaded', function () {
+  var sidebar = document.getElementById('sidebar');
+  var contentArea = document.getElementById('content-area');
+  var toggleButton = document.getElementById('toggle-sidebar');
+  var toggleIcon = toggleButton.querySelector('i');
+  var isExpanded = true;
+  function toggleSidebar() {
+    isExpanded = !isExpanded;
+    if (isExpanded) {
+      // 展开
+      sidebar.classList.remove('w-20');
+      sidebar.classList.add('w-64');
+      toggleIcon.classList.remove('fa-angle-double-right');
+      toggleIcon.classList.add('fa-angle-double-left');
+      toggleButton.innerHTML = '<i class="fas fa-angle-double-left mr-2"></i> 收起侧边栏';
+
+      // 显示文本 (需要遍历导航项)
+      document.querySelectorAll('.nav-item span').forEach(function (span) {
+        span.classList.remove('hidden');
+      });
+      document.querySelectorAll('.nav-item i').forEach(function (icon) {
+        icon.classList.remove('mr-0');
+        icon.classList.add('mr-3');
+      });
+    } else {
+      // 收起
+      sidebar.classList.remove('w-64');
+      sidebar.classList.add('w-20');
+      toggleIcon.classList.remove('fa-angle-double-left');
+      toggleIcon.classList.add('fa-angle-double-right');
+      toggleButton.innerHTML = '<i class="fas fa-angle-double-right mr-0"></i>';
+
+      // 隐藏文本
+      document.querySelectorAll('.nav-item span').forEach(function (span) {
+        span.classList.add('hidden');
+      });
+      document.querySelectorAll('.nav-item i').forEach(function (icon) {
+        icon.classList.remove('mr-3');
+        icon.classList.add('mr-0');
+      });
+    }
+    // 强制内容区域重新计算布局（虽然这里主要影响的是侧边栏宽度，但保持同步）
+    contentArea.style.width = "calc(100% -".concat(sidebar.offsetWidth, "px)");
+  }
+  toggleButton.addEventListener('click', toggleSidebar);
+  // 初始设置内容区域宽度
+  window.addEventListener('resize', function () {
+    contentArea.style.width = "calc(100% -".concat(sidebar.offsetWidth, "px)");
+  });
+  // 首次加载时设置
+  contentArea.style.width = "calc(100% -".concat(sidebar.offsetWidth, "px)");
+});
+  </script>
+  <!-- [/JSMOD] zxc_侧边栏切换逻辑 -->
+ 
+
+</body></html>

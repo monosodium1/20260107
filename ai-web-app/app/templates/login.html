@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Al智能政企瞭望舆情数据采集与分析系统 - 登录</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <style>
+        body {
+            background-color: #0a0a1a;
+            color: #e0e0ff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .tech-card {
+            background-color: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(79, 70, 229, 0.5);
+            box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+        }
+        .tech-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.5);
+            outline: none;
+        }
+        .tech-button {
+            background-color: #4f46e5;
+            transition: all 0.3s ease;
+        }
+        .tech-button:hover {
+            background-color: #4338ca;
+            box-shadow: 0 0 15px rgba(79, 70, 229, 0.8);
+        }
+        @media (max-width: 640px) {
+            .login-container {
+                width: 90%;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="login-container w-full max-w-md p-8 rounded-xl tech-card" id="login-container">
+        <div class="text-center mb-8">
+            <div class="text-5xl mb-2 text-indigo-400">
+                <i class="fas fa-satellite-dish"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-white mb-1"> Al智能政企瞭望舆情<br>数据采集与分析系统 </h1>
+        </div>
+
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="mb-6">
+                <label class="block text-sm font-medium mb-2 text-gray-300 flex items-center" for="username">
+                    <i class="fas fa-user mr-2 text-indigo-400"></i> 用户名
+                </label>
+                <input class="tech-input w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 transition duration-200" id="username" name="username" placeholder="请输入用户名" required type="text">
+            </div>
+
+            <div class="mb-8">
+                <label class="block text-sm font-medium mb-2 text-gray-300 flex items-center" for="password">
+                    <i class="fas fa-lock mr-2 text-indigo-400"></i> 密 码
+                </label>
+                <input class="tech-input w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white placeholder-gray-500 transition duration-200" id="password" name="password" placeholder="请输入密码" required type="password">
+            </div>
+
+            <div class="mb-4 h-6 text-center" id="message-area"></div>
+
+            <button class="tech-button w-full py-3 rounded-lg text-lg font-semibold text-white shadow-lg hover:shadow-indigo-500/50 focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50 flex items-center justify-center" id="loginButton" type="submit">
+                <i class="fas fa-sign-in-alt mr-2"></i> <span id="buttonText"> 系统登录 </span>
+                <div class="hidden border-t-2 border-b-2 border-white w-4 h-4 rounded-full animate-spin ml-3" id="spinner"></div>
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-sm">
+            <a class="text-indigo-400 hover:text-indigo-300 transition duration-200 mr-4" href="javascript:void(0);"> 忘记密码? </a>
+            <a class="text-indigo-400 hover:text-indigo-300 transition duration-200" href="javascript:void(0);"> 注册新用户 </a>
+        </div>
+    </div>
+
+    <script>
+        function handleLogin(event) {
+            event.preventDefault();
+            var usernameInput = document.getElementById('username');
+            var passwordInput = document.getElementById('password');
+            var messageArea = document.getElementById('message-area');
+            var loginButton = document.getElementById('loginButton');
+            var buttonText = document.getElementById('buttonText');
+            var spinner = document.getElementById('spinner');
+            var username = usernameInput.value.trim();
+            var password = passwordInput.value.trim();
+
+            loginButton.disabled = true;
+            buttonText.textContent = '正在验证...';
+            spinner.classList.remove('hidden');
+            messageArea.innerHTML = '';
+
+            var formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            fetch('/login', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    messageArea.innerHTML = '<span class="text-green-400 font-medium"><i class="fas fa-check-circle mr-1"></i> ' + data.message + '</span>';
+                    setTimeout(function() {
+                        window.location.href = '/dashboard';
+                    }, 1000);
+                } else {
+                    messageArea.innerHTML = '<span class="text-red-400 font-medium"><i class="fas fa-exclamation-triangle mr-1"></i> ' + data.message + '</span>';
+                    loginButton.disabled = false;
+                    buttonText.textContent = '系统登录';
+                    spinner.classList.add('hidden');
+                }
+            })
+            .catch(error => {
+                messageArea.innerHTML = '<span class="text-red-400 font-medium"><i class="fas fa-exclamation-triangle mr-1"></i> 网络错误，请重试。</span>';
+                loginButton.disabled = false;
+                buttonText.textContent = '系统登录';
+                spinner.classList.add('hidden');
+            });
+        }
+    </script>
+</body>
+</html>

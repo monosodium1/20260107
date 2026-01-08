@@ -1,0 +1,624 @@
+{% extends "base_admin.html" %}
+
+{% block title %}数据管理 - Al智能政企瞭望舆情数据采集与分析系统{% endblock %}
+
+{% block extra_css %}
+        .tech-button {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            transition: all 0.3s ease;
+        }
+        .tech-button:hover {
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+        }
+        .data-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        .action-btn {
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .action-btn:hover {
+            transform: scale(1.1);
+        }
+        .pagination-btn {
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        .pagination-btn:hover {
+            background-color: #1e40af;
+        }
+        .pagination-btn.active {
+            background-color: #3b82f6;
+        }
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .max-w-md {
+            max-width: 600px;
+        }
+{% endblock %}
+
+{% block content %}
+        <h1 class="text-3xl font-extrabold text-white mb-6 border-b border-blue-700 pb-3"> 数据管理 </h1>
+
+        <div class="tech-panel p-6 rounded-xl mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl text-blue-300"> 数据检索与查询 </h2>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-400">总数据量: <span id="totalDataCount" class="text-blue-400 font-bold">0</span></span>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex gap-4">
+                    <div class="flex-1 relative">
+                        <input type="text" id="searchInput" placeholder="搜索标题、摘要、来源、关键词..." 
+                            class="w-full p-3 pl-10 border border-gray-600 rounded-lg bg-gray-800 text-white focus:outline-none focus:border-blue-500">
+                        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    <button onclick="searchData()" class="tech-button px-6 py-3 rounded-lg text-white font-semibold">
+                        <i class="fas fa-search mr-2"></i> 搜索
+                    </button>
+                    <button onclick="resetSearch()" class="px-6 py-3 rounded-lg bg-gray-600 hover:bg-gray-700 text-white font-semibold">
+                        <i class="fas fa-redo mr-2"></i> 重置
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-4 border-t border-blue-700">
+                <button onclick="selectAll()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-white text-sm">
+                    <i class="fas fa-check-double mr-1"></i> 全选
+                </button>
+                <button onclick="deselectAll()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-white text-sm">
+                    <i class="fas fa-times mr-1"></i> 取消全选
+                </button>
+                <div class="border-l border-blue-700 mx-2"></div>
+                <button onclick="batchDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white text-sm">
+                    <i class="fas fa-trash mr-1"></i> 批量删除
+                </button>
+                <button onclick="batchDeepCollect()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-lg text-white text-sm">
+                    <i class="fas fa-search-dollar mr-1"></i> 批量AI深度采集
+                </button>
+            </div>
+        </div>
+
+        <div class="tech-panel p-6 rounded-xl">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-blue-700">
+                            <th class="text-left py-3 px-4 w-12">
+                                <input type="checkbox" id="selectAllCheckbox" class="data-checkbox" onchange="toggleSelectAll()">
+                            </th>
+                            <th class="text-left py-3 px-4 text-gray-400">标题</th>
+                            <th class="text-left py-3 px-4 text-gray-400">来源</th>
+                            <th class="text-left py-3 px-4 text-gray-400">关键词</th>
+                            <th class="text-left py-3 px-4 text-gray-400">采集时间</th>
+                            <th class="text-left py-3 px-4 text-gray-400">保存时间</th>
+                            <th class="text-left py-3 px-4 text-gray-400 w-40">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTable">
+                        <tr>
+                            <td colspan="7" class="text-center py-12 text-gray-400">
+                                <i class="fas fa-spinner fa-spin text-3xl mb-4"></i>
+                                <p>加载中...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center mt-6 pt-4 border-t border-blue-700">
+                <div class="text-gray-400 text-sm">
+                    显示 <span id="showingStart">0</span> - <span id="showingEnd">0</span> 条，共 <span id="totalItems">0</span> 条
+                </div>
+                <div class="flex items-center space-x-2" id="pagination">
+                </div>
+            </div>
+        </div>
+
+    <div id="deepCollectModal" class="modal">
+        <div class="tech-panel p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl text-blue-300 mb-4">AI深度采集</h3>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2 text-gray-300">选择AI模型</label>
+                <select id="deepCollectModelSelect" class="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white focus:outline-none focus:border-blue-500">
+                    <option value="">请选择AI模型</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <p class="text-gray-400 text-sm">已选择 <span id="selectedDataCount" class="text-blue-400 font-bold">0</span> 条数据进行深度采集</p>
+            </div>
+            <input type="hidden" id="deepCollectDataIds">
+            <div class="flex gap-4">
+                <button onclick="closeDeepCollectModal()" class="flex-1 px-6 py-3 rounded-lg bg-gray-600 hover:bg-gray-700 text-white font-semibold">
+                    取消
+                </button>
+                <button onclick="startDeepCollection()" class="flex-1 tech-button px-6 py-3 rounded-lg text-white font-semibold">
+                    开始采集
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="progressModal" class="modal">
+        <div class="tech-panel p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl text-blue-300 mb-4">深度采集进行中</h3>
+            <div class="mb-6">
+                <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden mb-2">
+                    <div id="progressBar" class="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span id="progressText" class="text-gray-400">0/0 (0%)</span>
+                    <span id="progressFailed" class="text-red-400">失败: 0</span>
+                </div>
+            </div>
+            <div class="text-center text-gray-400 text-sm">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <p>正在使用AI进行深度采集，请稍候...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="reportModal" class="modal">
+        <div class="tech-panel p-6 rounded-xl w-full max-w-md">
+            <div id="reportContent">
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script>
+        let currentPage = 1;
+        let perPage = 10;
+        let searchQuery = '';
+        let selectedData = new Set();
+        let totalItems = 0;
+        let totalPages = 0;
+
+        $(document).ready(function() {
+            loadData();
+            loadStats();
+        });
+
+        function loadStats() {
+            $.get('/api/data/stats', function(data) {
+                $('#totalDataCount').text(data.total_count);
+            });
+        }
+
+        function loadData() {
+            $('#dataTable').html(`
+                <tr>
+                    <td colspan="7" class="text-center py-12 text-gray-400">
+                        <i class="fas fa-spinner fa-spin text-3xl mb-4"></i>
+                        <p>加载中...</p>
+                    </td>
+                </tr>
+            `);
+
+            $.get('/api/data/list', {
+                page: currentPage,
+                per_page: perPage,
+                search: searchQuery
+            }, function(data) {
+                totalItems = data.total;
+                totalPages = data.pages;
+                
+                if (data.data.length === 0) {
+                    $('#dataTable').html(`
+                        <tr>
+                            <td colspan="7" class="text-center py-12 text-gray-400">
+                                <i class="fas fa-inbox text-6xl mb-4 opacity-50"></i>
+                                <p>暂无数据</p>
+                            </td>
+                        </tr>
+                    `);
+                } else {
+                    let html = '';
+                    data.data.forEach(function(item) {
+                        html += `
+                            <tr class="border-b border-blue-800 hover:bg-blue-900/30 transition-colors">
+                                <td class="py-3 px-4">
+                                    <input type="checkbox" class="data-checkbox" value="${item.id}" onchange="toggleSelect(${item.id})">
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="max-w-md">
+                                        <a href="${item.url}" target="_blank" class="text-blue-400 hover:text-blue-300 font-medium" title="${item.title}">
+                                            ${item.title.substring(0, 100)}${item.title.length > 100 ? '...' : ''}
+                                        </a>
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 text-gray-300">${item.source || '-'}</td>
+                                <td class="py-3 px-4 text-gray-300">${item.keyword || '-'}</td>
+                                <td class="py-3 px-4 text-gray-300">
+                                    <div class="flex items-center gap-2">
+                                        ${item.collected_at || '-'}
+                                        ${item.has_deep_collected ? '<span class="px-2 py-1 bg-green-600 text-white text-xs rounded">已深度采集</span>' : ''}
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4 text-gray-300">${item.saved_at || '-'}</td>
+                                <td class="py-3 px-4">
+                                    <div class="flex gap-2">
+                                        <button onclick="deleteData(${item.id})" class="action-btn bg-red-600 hover:bg-red-700 text-white text-xs" title="删除">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <button onclick="deepCollect(${item.id})" class="action-btn bg-orange-600 hover:bg-orange-700 text-white text-xs" title="AI深度采集">
+                                            <i class="fas fa-search-dollar"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    $('#dataTable').html(html);
+                }
+
+                updatePagination();
+                updateShowingInfo();
+            }).fail(function() {
+                $('#dataTable').html(`
+                    <tr>
+                        <td colspan="7" class="text-center py-12 text-red-400">
+                            <i class="fas fa-exclamation-triangle text-3xl mb-4"></i>
+                            <p>加载失败，请重试</p>
+                        </td>
+                    </tr>
+                `);
+            });
+        }
+
+        function updatePagination() {
+            let html = '';
+            
+            html += `<button onclick="goToPage(1)" class="pagination-btn ${currentPage === 1 ? 'active' : 'bg-gray-700 text-white'}" ${currentPage === 1 ? 'disabled' : ''}>首页</button>`;
+            html += `<button onclick="goToPage(${currentPage - 1})" class="pagination-btn bg-gray-700 text-white" ${!data.has_prev ? 'disabled' : ''}>上一页</button>`;
+            
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+            
+            if (startPage > 1) {
+                html += `<span class="px-2 text-gray-400">...</span>`;
+            }
+            
+            for (let i = startPage; i <= endPage; i++) {
+                html += `<button onclick="goToPage(${i})" class="pagination-btn ${i === currentPage ? 'active' : 'bg-gray-700 text-white'}">${i}</button>`;
+            }
+            
+            if (endPage < totalPages) {
+                html += `<span class="px-2 text-gray-400">...</span>`;
+            }
+            
+            html += `<button onclick="goToPage(${currentPage + 1})" class="pagination-btn bg-gray-700 text-white" ${!data.has_next ? 'disabled' : ''}>下一页</button>`;
+            html += `<button onclick="goToPage(${totalPages})" class="pagination-btn ${currentPage === totalPages ? 'active' : 'bg-gray-700 text-white'}" ${currentPage === totalPages ? 'disabled' : ''}>末页</button>`;
+            
+            $('#pagination').html(html);
+        }
+
+        function updateShowingInfo() {
+            let start = (currentPage - 1) * perPage + 1;
+            let end = Math.min(currentPage * perPage, totalItems);
+            $('#showingStart').text(start);
+            $('#showingEnd').text(end);
+            $('#totalItems').text(totalItems);
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages || page === currentPage) {
+                return;
+            }
+            currentPage = page;
+            selectedData.clear();
+            updateSelectAllCheckbox();
+            loadData();
+        }
+
+        function searchData() {
+            searchQuery = $('#searchInput').val().trim();
+            currentPage = 1;
+            selectedData.clear();
+            updateSelectAllCheckbox();
+            loadData();
+        }
+
+        function resetSearch() {
+            $('#searchInput').val('');
+            searchQuery = '';
+            currentPage = 1;
+            selectedData.clear();
+            updateSelectAllCheckbox();
+            loadData();
+        }
+
+        function toggleSelect(id) {
+            if (selectedData.has(id)) {
+                selectedData.delete(id);
+            } else {
+                selectedData.add(id);
+            }
+            updateSelectAllCheckbox();
+        }
+
+        function toggleSelectAll() {
+            const checkbox = $('#selectAllCheckbox');
+            if (checkbox.prop('checked')) {
+                selectAll();
+            } else {
+                deselectAll();
+            }
+        }
+
+        function selectAll() {
+            $('.data-checkbox').each(function() {
+                const id = $(this).val();
+                if (id) {
+                    selectedData.add(parseInt(id));
+                    $(this).prop('checked', true);
+                }
+            });
+            updateSelectAllCheckbox();
+        }
+
+        function deselectAll() {
+            selectedData.clear();
+            $('.data-checkbox').prop('checked', false);
+            updateSelectAllCheckbox();
+        }
+
+        function updateSelectAllCheckbox() {
+            const totalCheckboxes = $('.data-checkbox').length - 1;
+            const checkedCount = $('.data-checkbox:checked').length;
+            
+            if (totalCheckboxes > 0 && checkedCount === totalCheckboxes) {
+                $('#selectAllCheckbox').prop('checked', true);
+            } else {
+                $('#selectAllCheckbox').prop('checked', false);
+            }
+        }
+
+        function deleteData(id) {
+            if (confirm('确定要删除这条数据吗？')) {
+                $.ajax({
+                    url: '/api/data/' + id,
+                    type: 'DELETE',
+                    success: function(response) {
+                        if (response.success) {
+                            alert(response.message);
+                            loadData();
+                            loadStats();
+                        } else {
+                            alert(response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('删除失败，请重试');
+                    }
+                });
+            }
+        }
+
+        function batchDelete() {
+            if (selectedData.size === 0) {
+                alert('请先选择要删除的数据');
+                return;
+            }
+
+            if (confirm(`确定要删除选中的 ${selectedData.size} 条数据吗？`)) {
+                $.ajax({
+                    url: '/api/data/batch-delete',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        data_ids: Array.from(selectedData)
+                    }),
+                    success: function(response) {
+                        if (response.success) {
+                            alert(response.message);
+                            selectedData.clear();
+                            updateSelectAllCheckbox();
+                            loadData();
+                            loadStats();
+                        } else {
+                            alert(response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('批量删除失败，请重试');
+                    }
+                });
+            }
+        }
+
+        function deepCollect(id) {
+            showDeepCollectModal([id]);
+        }
+
+        function batchDeepCollect() {
+            if (selectedData.size === 0) {
+                alert('请先选择要进行深度采集的数据');
+                return;
+            }
+
+            showDeepCollectModal(Array.from(selectedData));
+        }
+
+        function showDeepCollectModal(dataIds) {
+            $('#deepCollectModal').addClass('show');
+            loadAIModels();
+            $('#deepCollectDataIds').val(JSON.stringify(dataIds));
+            $('#selectedDataCount').text(dataIds.length);
+        }
+
+        function closeDeepCollectModal() {
+            $('#deepCollectModal').removeClass('show');
+        }
+
+        function loadAIModels() {
+            $.get('/api/ai-models', function(data) {
+                let html = '';
+                data.models.forEach(function(model) {
+                    if (model.status === 'active') {
+                        html += `<option value="${model.id}">${model.name}</option>`;
+                    }
+                });
+                $('#deepCollectModelSelect').html(html);
+            });
+        }
+
+        function startDeepCollection() {
+            const dataIds = JSON.parse($('#deepCollectDataIds').val());
+            const modelId = $('#deepCollectModelSelect').val();
+
+            if (!modelId) {
+                alert('请选择AI模型');
+                return;
+            }
+
+            $('#deepCollectModal').removeClass('show');
+            showProgressModal();
+
+            $.ajax({
+                url: '/api/deep-collection/start',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    collection_data_ids: dataIds,
+                    ai_model_id: parseInt(modelId)
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        const taskId = response.task_id;
+                        pollProgress(taskId);
+                    } else {
+                        alert(response.message);
+                        closeProgressModal();
+                    }
+                },
+                error: function() {
+                    alert('启动深度采集失败，请重试');
+                    closeProgressModal();
+                }
+            });
+        }
+
+        function pollProgress(taskId) {
+            const interval = setInterval(function() {
+                $.get('/api/deep-collection/status/' + taskId, function(response) {
+                    if (response.success) {
+                        const status = response.status;
+                        updateProgress(status);
+
+                        if (status.status === 'completed' || status.status === 'failed') {
+                            clearInterval(interval);
+                            showCompletionReport(status);
+                        }
+                    }
+                });
+            }, 2000);
+        }
+
+        function updateProgress(status) {
+            const percentage = status.percentage || 0;
+            const completed = status.completed || 0;
+            const failed = status.failed || 0;
+            const total = status.total || 0;
+
+            $('#progressBar').css('width', percentage + '%');
+            $('#progressText').text(`${completed}/${total} (${percentage}%)`);
+            $('#progressFailed').text(`失败: ${failed}`);
+        }
+
+        function showProgressModal() {
+            $('#progressModal').addClass('show');
+            $('#progressBar').css('width', '0%');
+            $('#progressText').text('0/0 (0%)');
+            $('#progressFailed').text('失败: 0');
+        }
+
+        function closeProgressModal() {
+            $('#progressModal').removeClass('show');
+        }
+
+        function showCompletionReport(status) {
+            closeProgressModal();
+
+            const isSuccess = status.status === 'completed';
+            const completed = status.completed || 0;
+            const failed = status.failed || 0;
+            const total = status.total || 0;
+
+            let html = `
+                <div class="text-center mb-6">
+                    <i class="fas ${isSuccess ? 'fa-check-circle text-green-500' : 'fa-times-circle text-red-500'} text-6xl mb-4"></i>
+                    <h3 class="text-2xl font-bold ${isSuccess ? 'text-green-400' : 'text-red-400'} mb-2">
+                        ${isSuccess ? '深度采集完成' : '深度采集失败'}
+                    </h3>
+                </div>
+                <div class="space-y-4 mb-6">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">总数据量</span>
+                        <span class="text-white font-bold">${total}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">成功采集</span>
+                        <span class="text-green-400 font-bold">${completed}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">失败</span>
+                        <span class="text-red-400 font-bold">${failed}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">成功率</span>
+                        <span class="text-blue-400 font-bold">${total > 0 ? Math.round((completed / total) * 100) : 0}%</span>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="closeReportModal(); loadData(); loadStats();" class="flex-1 tech-button py-3 rounded-lg text-white font-semibold">
+                        确定
+                    </button>
+                    <button onclick="closeReportModal(); window.location.href='/deep-collection';" class="flex-1 px-6 py-3 rounded-lg bg-gray-600 hover:bg-gray-700 text-white font-semibold">
+                        查看详情
+                    </button>
+                </div>
+            `;
+
+            $('#reportContent').html(html);
+            $('#reportModal').addClass('show');
+        }
+
+        function closeReportModal() {
+            $('#reportModal').removeClass('show');
+        }
+
+        $('#searchInput').keypress(function(e) {
+            if (e.which === 13) {
+                searchData();
+            }
+        });
+    </script>
+{% endblock %}
