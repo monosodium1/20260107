@@ -1,212 +1,154 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-    <meta charset="utf-8">
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <title>Al智能政企瞭望舆情数据采集与分析系统</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
-    <script src="{{ url_for('static', filename='js/echarts.min.js') }}"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0a192f;
-            color: #e0f7fa;
-        }
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0d2a4f;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #1e40af;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #3b82f6;
-        }
-        .tech-panel {
-            background-color: rgba(10, 30, 55, 0.7);
-            border: 1px solid #1e40af;
-            box-shadow: 0 0 15px rgba(30, 64, 175, 0.5);
-            backdrop-filter: blur(5px);
-        }
-        .nav-item:hover {
-            background-color: #1e40af;
-            color: #ffffff;
-        }
-        .active-nav {
-            background-color: #1e40af;
-            color: #ffffff;
-            border-left: 4px solid #3b82f6;
-        }
+{% extends "base_admin.html" %}
+
+{% block title %}后台主页 - Al智能政企瞭望舆情数据采集与分析系统{% endblock %}
+
+{% block extra_css %}
         .chart-container {
             width: 100%;
             height: 300px;
         }
-    </style>
-</head>
-<body class="min-h-screen flex flex-col">
-    <header class="bg-[#050e1a] shadow-lg p-4 flex justify-between items-center sticky top-0 z-50 border-b border-blue-800">
-        <div class="text-2xl font-bold text-blue-400 tracking-wider">
-            Al政企瞭望
-            <span class="text-sm text-gray-400 ml-2"> 舆情数据采集与分析系统 </span>
-        </div>
-        <div class="flex items-center space-x-4">
-            <div class="flex items-center text-sm text-green-400" id="network-status">
-                <i class="fas fa-wifi mr-1"></i> 网络: 正常
-            </div>
-            <div class="flex items-center text-sm text-green-400" id="system-status">
-                <i class="fas fa-server mr-1"></i> 系统: 稳定
-            </div>
-            <a href="/logout" class="p-2 rounded-full hover:bg-blue-700 transition duration-200" title="退出登录">
-                <i class="fas fa-sign-out-alt text-xl text-blue-300"></i>
-            </a>
-        </div>
-    </header>
+{% endblock %}
 
-    <div class="flex flex-1 overflow-hidden">
-        <nav class="w-64 bg-[#0a192f] p-4 flex flex-col border-r border-blue-900 transition-all duration-300" id="sidebar">
-            <div class="space-y-2 flex-grow">
-                <a class="nav-item active-nav flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="dashboard" href="/dashboard">
-                    <i class="fas fa-tachometer-alt w-5 mr-3"></i> <span class="font-medium"> 后台主页 </span>
-                </a>
-                <a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="collection" href="/collection">
-                    <i class="fas fa-cogs w-5 mr-3"></i> <span class="font-medium"> 采集管理 </span>
-                </a>
-                <a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="crawler-management" href="/crawler-management">
-                    <i class="fas fa-bug w-5 mr-3"></i> <span class="font-medium"> 爬虫管理 </span>
-                </a>
-                <a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="data" href="/data">
-                    <i class="fas fa-database w-5 mr-3"></i> <span class="font-medium"> 数据管理 </span>
-                </a>
-                <a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="deep-collection" href="/deep-collection">
-                    <i class="fas fa-search-dollar w-5 mr-3"></i> <span class="font-medium"> 深采管理 </span>
-                </a>
-                <a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="ai-model" href="/ai-model">
-                    <i class="fas fa-microchip w-5 mr-3"></i> <span class="font-medium"> AI模型管理 </span>
-                </a>
-                <a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="ai-analysis" href="/ai-analysis">
-                    <i class="fas fa-brain w-5 mr-3"></i> <span class="font-medium"> AI分析与报告管理 </span>
-                </a>
-                <a class="nav-item flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="big-screen" href="/big-screen">
-                    <i class="fas fa-desktop w-5 mr-3"></i> <span class="font-medium"> Al数智大屏 </span>
-                </a>
-            </div>
-            <div class="mt-6 pt-4 border-t border-blue-900">
-                <button class="w-full flex items-center justify-center p-2 text-sm text-blue-400 hover:bg-blue-800 rounded transition duration-200" id="toggle-sidebar">
-                    <i class="fas fa-angle-double-left mr-2"></i> 收起侧边栏
+{% block content %}
+    <div class="w-full h-full" id="page-container">
+        <section class="page-content" id="dashboard-page">
+            <div class="flex justify-between items-center mb-6 pb-3 border-b border-blue-700">
+                <h1 class="text-3xl font-extrabold text-white tracking-wide"> 系统运行概览 </h1>
+                <button class="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-300 transform hover:scale-[1.02]" onclick="refreshData()">
+                    <i class="fas fa-chart-line mr-2"></i> 实时数据刷新
                 </button>
             </div>
-        </nav>
 
-        <main class="flex-1 p-6 overflow-y-auto" id="content-area">
-            <div class="w-full h-full" id="page-container">
-                <section class="page-content" id="dashboard-page">
-                    <div class="flex justify-between items-center mb-6 pb-3 border-b border-blue-700">
-                        <h1 class="text-3xl font-extrabold text-white tracking-wide"> 系统运行概览 </h1>
-                        <button class="flex items-center bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-lg transition duration-300 transform hover:scale-[1.02]" onclick="refreshData()">
-                            <i class="fas fa-chart-line mr-2"></i> 实时数据刷新
-                        </button>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+                    <div class="flex justify-between items-start">
+                        <p class="text-sm uppercase text-blue-300 font-semibold"> 总数据量 </p>
+                        <i class="fas fa-database text-3xl text-blue-400 opacity-70"></i>
                     </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
-                            <div class="flex justify-between items-start">
-                                <p class="text-sm uppercase text-blue-300 font-semibold"> 总数据量 </p>
-                                <i class="fas fa-database text-3xl text-blue-400 opacity-70"></i>
-                            </div>
-                            <div class="mt-4">
-                                <p class="text-4xl font-bold text-white" id="stat-total-data"> 1,234,567 </p>
-                                <p class="text-xs text-green-400 mt-1" id="stat-data-growth"> +12.5% (24h) </p>
-                            </div>
-                        </div>
-
-                        <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
-                            <div class="flex justify-between items-start">
-                                <p class="text-sm uppercase text-blue-300 font-semibold"> 总爬虫量 </p>
-                                <i class="fas fa-spider text-3xl text-blue-400 opacity-70"></i>
-                            </div>
-                            <div class="mt-4">
-                                <p class="text-4xl font-bold text-white" id="stat-total-crawls"> 89,123 </p>
-                                <p class="text-xs text-yellow-400 mt-1" id="stat-crawls-rate"> ~500/h (Avg) </p>
-                            </div>
-                        </div>
-
-                        <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
-                            <div class="flex justify-between items-start">
-                                <p class="text-sm uppercase text-blue-300 font-semibold"> AI引擎状态 </p>
-                                <i class="fas fa-robot text-3xl text-green-400 opacity-70"></i>
-                            </div>
-                            <div class="mt-4">
-                                <p class="text-4xl font-bold text-green-400" id="stat-ai-engine"> 运行中 </p>
-                                <p class="text-xs text-gray-400 mt-1" id="stat-ai-version"> 模型版本: V2.1 </p>
-                            </div>
-                        </div>
-
-                        <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
-                            <div class="flex justify-between items-start">
-                                <p class="text-sm uppercase text-blue-300 font-semibold"> 系统状态 </p>
-                                <i class="fas fa-heartbeat text-3xl text-red-400 opacity-70"></i>
-                            </div>
-                            <div class="mt-4">
-                                <p class="text-4xl font-bold text-red-400" id="stat-system-health"> 警告 </p>
-                                <p class="text-xs text-red-400 mt-1" id="stat-system-warning"> 需关注存储 </p>
-                            </div>
-                        </div>
+                    <div class="mt-4">
+                        <p class="text-4xl font-bold text-white" id="stat-total-data"> 1,234,567 </p>
+                        <p class="text-xs text-green-400 mt-1" id="stat-data-growth"> +12.5% (24h) </p>
                     </div>
+                </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2 tech-panel p-4 rounded-xl">
-                            <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
-                                <i class="fas fa-chart-line mr-2 text-blue-400"></i> 近7日数据采集趋势
-                            </h3>
-                            <div class="chart-container h-80" id="chart-data-trend"></div>
-                        </div>
-
-                        <div class="lg:col-span-1 tech-panel p-4 rounded-xl">
-                            <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
-                                <i class="fas fa-chart-pie mr-2 text-blue-400"></i> AI分析任务分布
-                            </h3>
-                            <div class="chart-container h-80" id="chart-ai-distribution"></div>
-                        </div>
+                <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+                    <div class="flex justify-between items-start">
+                        <p class="text-sm uppercase text-blue-300 font-semibold"> 总爬虫量 </p>
+                        <i class="fas fa-spider text-3xl text-blue-400 opacity-70"></i>
                     </div>
-
-                    <div class="mt-6 tech-panel p-4 rounded-xl">
-                        <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
-                            <i class="fas fa-history mr-2 text-blue-400"></i> 近期系统操作日志
-                        </h3>
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-blue-800">
-                                <thead>
-                                    <tr class="text-left text-xs font-medium uppercase tracking-wider text-blue-300 bg-blue-900/30">
-                                        <th class="px-4 py-3"> 时间 </th>
-                                        <th class="px-4 py-3"> 操作用户 </th>
-                                        <th class="px-4 py-3"> 模块 </th>
-                                        <th class="px-4 py-3"> 操作描述 </th>
-                                        <th class="px-4 py-3"> 状态 </th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-blue-900 text-sm" id="log-table-body"></tbody>
-                            </table>
-                        </div>
-                        <div class="text-center mt-4">
-                            <a class="text-blue-400 hover:text-blue-300 text-sm" href="javascript:void(0);"> 查看所有日志 &gt; </a>
-                        </div>
+                    <div class="mt-4">
+                        <p class="text-4xl font-bold text-white" id="stat-total-crawls"> 89,123 </p>
+                        <p class="text-xs text-yellow-400 mt-1" id="stat-crawls-rate"> ~500/h (Avg) </p>
                     </div>
-                </section>
+                </div>
+
+                <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+                    <div class="flex justify-between items-start">
+                        <p class="text-sm uppercase text-blue-300 font-semibold"> AI引擎状态 </p>
+                        <i class="fas fa-robot text-3xl text-green-400 opacity-70"></i>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-4xl font-bold text-green-400" id="stat-ai-engine"> 运行中 </p>
+                        <p class="text-xs text-gray-400 mt-1" id="stat-ai-version"> 模型版本: V2.1 </p>
+                    </div>
+                </div>
+
+                <div class="tech-panel p-5 rounded-xl transition duration-300 hover:shadow-blue-500/50">
+                    <div class="flex justify-between items-start">
+                        <p class="text-sm uppercase text-blue-300 font-semibold"> 系统状态 </p>
+                        <i class="fas fa-heartbeat text-3xl text-red-400 opacity-70"></i>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-4xl font-bold text-red-400" id="stat-system-health"> 警告 </p>
+                        <p class="text-xs text-red-400 mt-1" id="stat-system-warning"> 需关注存储 </p>
+                    </div>
+                </div>
             </div>
-        </main>
-    </div>
 
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 tech-panel p-4 rounded-xl">
+                    <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-blue-400"></i> 近7日数据采集趋势
+                    </h3>
+                    <div class="chart-container h-80" id="chart-data-trend"></div>
+                </div>
+
+                <div class="lg:col-span-1 tech-panel p-4 rounded-xl">
+                    <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+                        <i class="fas fa-chart-pie mr-2 text-blue-400"></i> 数据来源分布
+                    </h3>
+                    <div class="chart-container h-80" id="chart-source-distribution"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
+                <div class="tech-panel p-4 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+                        <i class="fas fa-microchip mr-2 text-blue-400"></i> CPU使用率
+                    </h3>
+                    <div class="text-3xl font-bold text-blue-400" id="system-cpu-percent"> 0%</div>
+                    <div class="text-xs text-gray-400 mt-1">核心数: <span id="system-cpu-count">0</span></div>
+                </div>
+
+                <div class="tech-panel p-4 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+                        <i class="fas fa-memory mr-2 text-blue-400"></i> 内存使用率
+                    </h3>
+                    <div class="text-3xl font-bold text-green-400" id="system-memory-percent"> 0%</div>
+                    <div class="text-xs text-gray-400 mt-1">可用: <span id="system-memory-available">0 GB</span></div>
+                </div>
+
+                <div class="tech-panel p-4 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+                        <i class="fas fa-hdd mr-2 text-blue-400"></i> 磁盘使用率
+                    </h3>
+                    <div class="text-3xl font-bold text-yellow-400" id="system-disk-percent"> 0%</div>
+                    <div class="text-xs text-gray-400 mt-1">已用: <span id="system-disk-used">0 GB</span></div>
+                </div>
+
+                <div class="tech-panel p-4 rounded-xl">
+                    <h3 class="text-lg font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+                        <i class="fas fa-network-wired mr-2 text-blue-400"></i> 网络状态
+                    </h3>
+                    <div class="text-3xl font-bold text-green-400" id="system-network-status"> 正常</div>
+                    <div class="text-xs text-gray-400 mt-1">连接数: <span id="system-network-connections">0</span></div>
+                </div>
+            </div>
+
+            <div class="mt-6 tech-panel p-4 rounded-xl">
+                <h3 class="text-xl font-semibold mb-3 border-b border-blue-800 pb-2 flex items-center">
+                    <i class="fas fa-history mr-2 text-blue-400"></i> 近期系统操作日志
+                </h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-blue-800">
+                        <thead>
+                            <tr class="text-left text-xs font-medium uppercase tracking-wider text-blue-300 bg-blue-900/30">
+                                <th class="px-4 py-3"> 时间 </th>
+                                <th class="px-4 py-3"> 操作用户 </th>
+                                <th class="px-4 py-3"> 模块 </th>
+                                <th class="px-4 py-3"> 操作描述 </th>
+                                <th class="px-4 py-3"> 状态 </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-blue-900 text-sm" id="log-table-body"></tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-4">
+                    <a class="text-blue-400 hover:text-blue-300 text-sm" href="javascript:void(0);"> 查看所有日志 &gt; </a>
+                </div>
+            </div>
+        </section>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{{ url_for('static', filename='package/dist/echarts.min.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var dataTrendChartDiv = document.getElementById('chart-data-trend');
-            var aiDistributionChartDiv = document.getElementById('chart-ai-distribution');
+            var sourceDistributionChartDiv = document.getElementById('chart-source-distribution');
             var dataTrendChart = null;
-            var aiDistributionChart = null;
+            var sourceDistributionChart = null;
 
             function loadDashboardData() {
                 fetch('/api/dashboard/stats')
@@ -230,12 +172,12 @@
                     })
                     .catch(error => console.error('Error loading trend:', error));
 
-                fetch('/api/dashboard/ai-distribution')
+                fetch('/api/dashboard/source-distribution')
                     .then(response => response.json())
                     .then(data => {
-                        initAIDistributionChart(data);
+                        initSourceDistributionChart(data);
                     })
-                    .catch(error => console.error('Error loading AI distribution:', error));
+                    .catch(error => console.error('Error loading source distribution:', error));
 
                 fetch('/api/dashboard/logs')
                     .then(response => response.json())
@@ -243,6 +185,27 @@
                         renderLogs(data);
                     })
                     .catch(error => console.error('Error loading logs:', error));
+
+                loadSystemStatus();
+            }
+
+            function loadSystemStatus() {
+                fetch('/api/dashboard/system-status')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('system-cpu-percent').textContent = data.cpu.cpu_percent + '%';
+                        document.getElementById('system-cpu-count').textContent = data.cpu.cpu_count;
+                        
+                        document.getElementById('system-memory-percent').textContent = data.memory.percent + '%';
+                        document.getElementById('system-memory-available').textContent = (data.memory.available / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+                        
+                        document.getElementById('system-disk-percent').textContent = data.disk.percent + '%';
+                        document.getElementById('system-disk-used').textContent = (data.disk.used / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+                        
+                        document.getElementById('system-network-status').textContent = data.network.status;
+                        document.getElementById('system-network-connections').textContent = data.network.connections;
+                    })
+                    .catch(error => console.error('Error loading system status:', error));
             }
 
             function initTrendChart(data) {
@@ -319,9 +282,9 @@
                 dataTrendChart.setOption(option);
             }
 
-            function initAIDistributionChart(data) {
-                if (!aiDistributionChartDiv) return;
-                aiDistributionChart = echarts.init(aiDistributionChartDiv);
+            function initSourceDistributionChart(data) {
+                if (!sourceDistributionChartDiv) return;
+                sourceDistributionChart = echarts.init(sourceDistributionChartDiv);
                 var option = {
                     tooltip: {
                         trigger: 'item',
@@ -338,7 +301,7 @@
                         padding: [20, 0, 0, 0]
                     },
                     series: [{
-                        name: 'AI任务分布',
+                        name: '数据来源分布',
                         type: 'pie',
                         radius: ['40%', '70%'],
                         avoidLabelOverlap: true,
@@ -358,10 +321,10 @@
                             }
                         },
                         data: data,
-                        color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444']
+                        color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
                     }]
                 };
-                aiDistributionChart.setOption(option);
+                sourceDistributionChart.setOption(option);
             }
 
             function renderLogs(logs) {
@@ -384,55 +347,10 @@
 
             window.addEventListener('resize', function () {
                 if (dataTrendChart) dataTrendChart.resize();
-                if (aiDistributionChart) aiDistributionChart.resize();
+                if (sourceDistributionChart) sourceDistributionChart.resize();
             });
-
-            var sidebar = document.getElementById('sidebar');
-            var contentArea = document.getElementById('content-area');
-            var toggleButton = document.getElementById('toggle-sidebar');
-            var toggleIcon = toggleButton.querySelector('i');
-            var isExpanded = true;
-
-            function toggleSidebar() {
-                isExpanded = !isExpanded;
-                if (isExpanded) {
-                    sidebar.classList.remove('w-20');
-                    sidebar.classList.add('w-64');
-                    toggleIcon.classList.remove('fa-angle-double-right');
-                    toggleIcon.classList.add('fa-angle-double-left');
-                    toggleButton.innerHTML = '<i class="fas fa-angle-double-left mr-2"></i> 收起侧边栏';
-                    document.querySelectorAll('.nav-item span').forEach(function (span) {
-                        span.classList.remove('hidden');
-                    });
-                    document.querySelectorAll('.nav-item i').forEach(function (icon) {
-                        icon.classList.remove('mr-0');
-                        icon.classList.add('mr-3');
-                    });
-                } else {
-                    sidebar.classList.remove('w-64');
-                    sidebar.classList.add('w-20');
-                    toggleIcon.classList.remove('fa-angle-double-left');
-                    toggleIcon.classList.add('fa-angle-double-right');
-                    toggleButton.innerHTML = '<i class="fas fa-angle-double-right mr-0"></i>';
-                    document.querySelectorAll('.nav-item span').forEach(function (span) {
-                        span.classList.add('hidden');
-                    });
-                    document.querySelectorAll('.nav-item i').forEach(function (icon) {
-                        icon.classList.remove('mr-3');
-                        icon.classList.add('mr-0');
-                    });
-                }
-                contentArea.style.width = "calc(100% - " + sidebar.offsetWidth + "px)";
-            }
-
-            toggleButton.addEventListener('click', toggleSidebar);
-            window.addEventListener('resize', function () {
-                contentArea.style.width = "calc(100% - " + sidebar.offsetWidth + "px)";
-            });
-            contentArea.style.width = "calc(100% - " + sidebar.offsetWidth + "px)";
 
             loadDashboardData();
         });
     </script>
-</body>
-</html>
+{% endblock %}

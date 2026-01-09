@@ -1,11 +1,28 @@
 from flask_login import UserMixin
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+import json
 from app import db
 
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+        }
     
     def __repr__(self):
         return f'<User {self.username}>'
@@ -131,7 +148,8 @@ class CrawlerData(db.Model):
             'summary': self.summary,
             'info': self.info,
             'source': self.source,
-            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'collected_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
     
     def __repr__(self):
@@ -275,4 +293,64 @@ class DeepCollectionData(db.Model):
     
     def __repr__(self):
         return f'<DeepCollectionData {self.collection_data_id} - {self.collection_status}>'
+
+
+class ChatSession(db.Model):
+    """对话会话模型"""
+    __tablename__ = 'chat_session'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), comment='会话标题')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), comment='用户ID')
+    ai_model_id = db.Column(db.Integer, db.ForeignKey('ai_model.id'), comment='使用的AI模型ID')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
+    
+    user = db.relationship('User', backref='chat_sessions', lazy=True)
+    ai_model = db.relationship('AIModel', backref='chat_sessions', lazy=True)
+    messages = db.relationship('ChatMessage', backref='session', lazy=True, cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'user_id': self.user_id,
+            'ai_model_id': self.ai_model_id,
+            'ai_model_name': self.ai_model.name if self.ai_model else None,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None,
+            'message_count': len(self.messages)
+        }
+    
+    def __repr__(self):
+        return f'<ChatSession {self.title}>'
+
+
+class ChatMessage(db.Model):
+    """对话消息模型"""
+    __tablename__ = 'chat_message'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey('chat_session.id'), nullable=False, comment='会话ID')
+    role = db.Column(db.String(20), comment='角色（user/assistant）')
+    content = db.Column(db.Text, comment='消息内容')
+    message_type = db.Column(db.String(20), default='text', comment='消息类型（text/chart/table/mixed）')
+    extra_data = db.Column(db.Text, comment='额外数据（图表配置、表格数据等JSON格式）')
+    tokens_used = db.Column(db.Integer, default=0, comment='使用的Token数量')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'session_id': self.session_id,
+            'role': self.role,
+            'content': self.content,
+            'message_type': self.message_type,
+            'extra_data': json.loads(self.extra_data) if self.extra_data else None,
+            'tokens_used': self.tokens_used,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
+        }
+    
+    def __repr__(self):
+        return f'<ChatMessage {self.role} - {self.content[:50]}>'
 

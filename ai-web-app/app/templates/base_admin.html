@@ -5,7 +5,7 @@
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>{% block title %}Al智能政企瞭望舆情数据采集与分析系统{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="{{ url_for('static', filename='css/all.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='fontawesome-free-6.4.0-web/css/all.min.css') }}" rel="stylesheet">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -104,7 +104,7 @@
                 <a class="nav-item {% if request.endpoint == 'main.ai_analysis' %}active-nav{% endif %} flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="ai-analysis" href="/ai-analysis">
                     <i class="fas fa-brain w-5 mr-3"></i> <span class="font-medium"> AI分析与报告管理 </span>
                 </a>
-                <a class="nav-item {% if request.endpoint == 'main.big_screen' %}active-nav{% endif %} flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="big-screen" href="/big-screen">
+                <a class="nav-item {% if request.endpoint == 'main.big_screen' %}active-nav{% endif %} flex items-center p-3 rounded-lg transition duration-200 cursor-pointer text-blue-200" data-page="big-screen" href="/big-screen" target="_blank">
                     <i class="fas fa-desktop w-5 mr-3"></i> <span class="font-medium"> Al数智大屏 </span>
                 </a>
             </div>

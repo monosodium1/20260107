@@ -575,6 +575,7 @@
                 url: '/api/ai-models/chat',
                 type: 'POST',
                 contentType: 'application/json',
+                timeout: 180000, // 3分钟超时
                 data: JSON.stringify({
                     model_id: modelId,
                     messages: chatHistory
@@ -594,11 +595,21 @@
                         `);
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
                     $('.loading-dots').parent().remove();
+                    
+                    let errorMsg = '请求失败，请重试';
+                    if (status === 'timeout') {
+                        errorMsg = '请求超时，请检查网络连接或稍后重试';
+                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    } else if (error) {
+                        errorMsg = error;
+                    }
+                    
                     $('#chatContainer').append(`
                         <div class="chat-message assistant text-red-400">
-                            请求失败，请重试
+                            ${errorMsg}
                         </div>
                     `);
                 }

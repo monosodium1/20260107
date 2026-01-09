@@ -3,13 +3,17 @@ from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 import random
 import json
-from app.models import User
+from app.models import User, CollectionData, CrawlerTask
 from app.services.crawler_service import crawler_service
 from app.services.collection_service import collection_service
 from app.services.data_service import DataService
 from app.services.ai_model_service import AIModelService
 from app.services.ai_client import AIClient
 from app.services.deep_collection_service import deep_collection_service
+from app.services.system_monitor_service import system_monitor_service
+from app.services.ai_analysis_service import AIAnalysisService
+from app.services.chat_session_service import ChatSessionService
+from flask_login import current_user
 from app import db
 
 bp = Blueprint('main', __name__)
@@ -26,13 +30,11 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        if username == 'admin' and password == '123456':
-            user = User.query.filter_by(username=username).first()
-            if not user:
-                user = User(username=username)
-                db.session.add(user)
-                db.session.commit()
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
             login_user(user)
+            session.permanent = True
             return jsonify({'success': True, 'message': '登录成功，正在跳转...'})
         else:
             return jsonify({'success': False, 'message': '用户名或密码错误，请重试。'})
@@ -44,6 +46,37 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('main.login'))
+
+@bp.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not username or not password:
+            return jsonify({'success': False, 'message': '用户名和密码不能为空'})
+        
+        if len(username) < 3:
+            return jsonify({'success': False, 'message': '用户名至少需要3个字符'})
+        
+        if len(password) < 6:
+            return jsonify({'success': False, 'message': '密码至少需要6个字符'})
+        
+        if password != confirm_password:
+            return jsonify({'success': False, 'message': '两次输入的密码不一致'})
+        
+        if User.query.filter_by(username=username).first():
+            return jsonify({'success': False, 'message': '用户名已存在'})
+        
+        user = User(username=username)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': '注册成功，请登录'})
+    
+    return render_template('register.html')
 
 @bp.route('/dashboard')
 @login_required
@@ -88,52 +121,80 @@ def big_screen():
 @bp.route('/api/dashboard/stats')
 @login_required
 def dashboard_stats():
-    stats = {
-        'total_data': 1234567,
-        'total_crawls': 89123,
-        'ai_engine_status': '运行中',
-        'network_status': '正常',
-        'system_status': '警告',
-        'data_growth_24h': '+12.5%',
-        'crawls_per_hour': '~500/h',
-        'ai_model_version': 'V2.1',
-        'system_warning': '需关注存储'
-    }
-    return jsonify(stats)
+    stats = system_monitor_service.get_dashboard_stats()
+    
+    data_growth_24h = '+0%'
+    try:
+        from datetime import timedelta
+        yesterday = datetime.now() - timedelta(days=1)
+        yesterday_count = CollectionData.query.filter(CollectionData.saved_at >= yesterday).count()
+        if yesterday_count > 0:
+            total_data = stats['total_data']
+            growth_percent = (yesterday_count / total_data) * 100
+            data_growth_24h = f'+{growth_percent:.1f}%'
+    except:
+        pass
+    
+    crawls_per_hour = '~0/h'
+    if stats['total_crawls'] > 0:
+        try:
+            from datetime import timedelta
+            one_hour_ago = datetime.now() - timedelta(hours=1)
+            recent_crawls = CrawlerTask.query.filter(CrawlerTask.created_at >= one_hour_ago).count()
+            crawls_per_hour = f'~{recent_crawls}/h'
+        except:
+            pass
+    
+    ai_model_version = '未配置'
+    try:
+        from app.models import AIModel
+        ai_model = AIModel.query.filter_by(is_default=True).first()
+        if ai_model:
+            ai_model_version = ai_model.model_name
+    except:
+        pass
+    
+    return jsonify({
+        'total_data': stats['total_data'],
+        'total_crawls': stats['total_crawls'],
+        'ai_engine_status': stats['ai_engine_status'],
+        'network_status': stats['network_status'],
+        'system_status': stats['system_status'],
+        'data_growth_24h': data_growth_24h,
+        'crawls_per_hour': crawls_per_hour,
+        'ai_model_version': ai_model_version,
+        'system_warning': stats['system_warning']
+    })
 
 @bp.route('/api/dashboard/trend')
 @login_required
 def dashboard_trend():
-    trend_data = {
-        'days': ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-        'crawls': [1200, 1550, 1300, 1800, 2100, 900, 1100],
-        'data': [15000, 18200, 16500, 22000, 25500, 11000, 14000]
-    }
+    trend_data = system_monitor_service.get_data_trend(days=7)
     return jsonify(trend_data)
 
 @bp.route('/api/dashboard/ai-distribution')
 @login_required
 def ai_distribution():
-    ai_data = [
-        {'value': 450, 'name': '情感分析'},
-        {'value': 320, 'name': '主题分类'},
-        {'value': 280, 'name': '实体识别'},
-        {'value': 180, 'name': '舆情预警'},
-        {'value': 150, 'name': '报告生成'}
-    ]
+    ai_data = system_monitor_service.get_ai_distribution()
     return jsonify(ai_data)
 
 @bp.route('/api/dashboard/logs')
 @login_required
 def dashboard_logs():
-    logs = [
-        {'time': '2024-07-25 10:30:15', 'user': 'Admin', 'module': '采集管理', 'desc': '启动爬虫任务: 财经门户A', 'status': '成功'},
-        {'time': '2024-07-25 10:25:01', 'user': 'System', 'module': 'AI分析', 'desc': '执行情感分析批处理', 'status': '成功'},
-        {'time': '2024-07-25 09:55:40', 'user': 'User001', 'module': '数据管理', 'desc': '导出数据: 20240724', 'status': '成功'},
-        {'time': '2024-07-25 09:10:11', 'user': 'Admin', 'module': '采集管理', 'desc': '停止爬虫任务: 社交媒体B', 'status': '失败'},
-        {'time': '2024-07-25 08:00:00', 'user': 'System', 'module': '系统', 'desc': '每日数据备份开始', 'status': '成功'}
-    ]
+    logs = system_monitor_service.get_system_logs(limit=10)
     return jsonify(logs)
+
+@bp.route('/api/dashboard/source-distribution')
+@login_required
+def source_distribution():
+    distribution = system_monitor_service.get_data_source_distribution()
+    return jsonify(distribution)
+
+@bp.route('/api/dashboard/system-status')
+@login_required
+def system_status():
+    status = system_monitor_service.get_system_status()
+    return jsonify(status)
 
 @bp.route('/api/crawler/stats', methods=['GET'])
 @login_required
@@ -313,7 +374,7 @@ def crawler_data():
     limit = request.args.get('limit', 50, type=int)
     offset = request.args.get('offset', 0, type=int)
     
-    data = crawler_service.get_task_data(task_id, limit=limit, offset=offset)
+    data = crawler_service.get_all_data(limit=limit, offset=offset)
     return jsonify({'data': [d.to_dict() for d in data]})
 
 @bp.route('/api/collection/sources', methods=['GET'])
@@ -614,5 +675,257 @@ def delete_deep_collections():
 def deep_collection_stats():
     stats = deep_collection_service.get_stats()
     return jsonify(stats)
+
+
+@bp.route('/api/ai-model/active', methods=['GET'])
+@login_required
+def get_active_ai_models():
+    models = AIModelService.get_active_models()
+    default_model = AIModelService.get_default_model()
+    
+    return jsonify({
+        'success': True,
+        'models': [model.to_dict() for model in models],
+        'default_model': default_model.to_dict() if default_model else None
+    })
+
+
+@bp.route('/api/ai-analysis/chat', methods=['POST'])
+@login_required
+def ai_analysis_chat():
+    message = request.form.get('message')
+    model_id = request.form.get('model_id', type=int)
+    session_id = request.form.get('session_id', type=int)
+    
+    if not message:
+        return jsonify({'success': False, 'error': '消息不能为空'})
+    
+    if not model_id:
+        return jsonify({'success': False, 'error': '请选择AI模型'})
+    
+    result = AIAnalysisService.process_message(message, model_id)
+    
+    if result['success']:
+        if session_id:
+            ChatSessionService.add_message(
+                session_id=session_id,
+                role='user',
+                content=message,
+                message_type='text',
+                tokens_used=0
+            )
+            
+            ChatSessionService.add_message(
+                session_id=session_id,
+                role='assistant',
+                content=result.get('message', '') or '',
+                message_type=result['type'],
+                extra_data={
+                    'chart_config': result.get('chart_config'),
+                    'table_data': result.get('table_data'),
+                    'text': result.get('content')
+                },
+                tokens_used=0
+            )
+    
+    return jsonify(result)
+
+
+@bp.route('/api/chat/sessions', methods=['GET'])
+@login_required
+def get_chat_sessions():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    result = ChatSessionService.get_user_sessions(
+        user_id=current_user.id,
+        page=page,
+        per_page=per_page
+    )
+    
+    return jsonify({
+        'success': True,
+        'sessions': result['data'],
+        'total': result['total']
+    })
+
+
+@bp.route('/api/chat/sessions', methods=['POST'])
+@login_required
+def create_chat_session():
+    data = request.get_json()
+    ai_model_id = data.get('ai_model_id')
+    title = data.get('title')
+    
+    if not ai_model_id:
+        return jsonify({'success': False, 'error': '请选择AI模型'})
+    
+    session = ChatSessionService.create_session(
+        user_id=current_user.id,
+        ai_model_id=ai_model_id,
+        title=title
+    )
+    
+    return jsonify({
+        'success': True,
+        'session': session.to_dict()
+    })
+
+
+@bp.route('/api/chat/sessions/<int:session_id>', methods=['GET'])
+@login_required
+def get_chat_session(session_id):
+    session = ChatSessionService.get_session(session_id)
+    
+    if not session:
+        return jsonify({'success': False, 'error': '会话不存在'})
+    
+    if session.user_id != current_user.id:
+        return jsonify({'success': False, 'error': '无权访问此会话'})
+    
+    messages = ChatSessionService.get_session_messages(session_id)
+    
+    return jsonify({
+        'success': True,
+        'session': session.to_dict(),
+        'messages': messages
+    })
+
+
+@bp.route('/api/chat/sessions/<int:session_id>', methods=['PUT'])
+@login_required
+def update_chat_session(session_id):
+    data = request.get_json()
+    title = data.get('title')
+    
+    if not title:
+        return jsonify({'success': False, 'error': '标题不能为空'})
+    
+    session = ChatSessionService.get_session(session_id)
+    
+    if not session:
+        return jsonify({'success': False, 'error': '会话不存在'})
+    
+    if session.user_id != current_user.id:
+        return jsonify({'success': False, 'error': '无权修改此会话'})
+    
+    success = ChatSessionService.update_session_title(session_id, title)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '更新失败'})
+
+
+@bp.route('/api/chat/sessions/<int:session_id>', methods=['DELETE'])
+@login_required
+def delete_chat_session(session_id):
+    session = ChatSessionService.get_session(session_id)
+    
+    if not session:
+        return jsonify({'success': False, 'error': '会话不存在'})
+    
+    if session.user_id != current_user.id:
+        return jsonify({'success': False, 'error': '无权删除此会话'})
+    
+    success = ChatSessionService.delete_session(session_id)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': '删除失败'})
+
+@bp.route('/api/big-screen/data')
+@login_required
+def big_screen_data():
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    
+    total_collect = CollectionData.query.count()
+    
+    success_tasks = CrawlerTask.query.filter_by(status='completed').count()
+    total_tasks = CrawlerTask.query.count()
+    success_rate = round((success_tasks / total_tasks * 100) if total_tasks > 0 else 0, 2)
+    
+    total_sources = crawler_service.get_sources_count()
+    
+    keywords = ['AI', '大数据', '云计算', '区块链', '物联网']
+    total_keywords = len(keywords)
+    
+    trend_data = []
+    for i in range(7):
+        date = datetime.now() - timedelta(days=6-i)
+        count = CollectionData.query.filter(
+            func.date(CollectionData.saved_at) == date.date()
+        ).count()
+        trend_data.append(count)
+    
+    source_distribution = []
+    sources = crawler_service.get_sources()
+    for source in sources:
+        count = CollectionData.query.filter(
+            CollectionData.source == source.name
+        ).count()
+        if count > 0:
+            source_distribution.append({
+                'value': count,
+                'name': source.name
+            })
+    
+    if not source_distribution:
+        source_distribution = [
+            {'value': 1048, 'name': '百度'},
+            {'value': 735, 'name': '谷歌'},
+            {'value': 580, 'name': '必应'},
+            {'value': 484, 'name': '知乎'},
+            {'value': 300, 'name': '微博'}
+        ]
+    
+    keyword_data = []
+    for keyword in keywords:
+        count = CollectionData.query.filter(
+            CollectionData.title.like(f'%{keyword}%')
+        ).count()
+        keyword_data.append({
+            'name': keyword,
+            'value': count
+        })
+    
+    keyword_data.sort(key=lambda x: x['value'], reverse=True)
+    
+    if not keyword_data or all(item['value'] == 0 for item in keyword_data):
+        keyword_data = [
+            {'name': 'AI', 'value': 18203},
+            {'name': '大数据', 'value': 23489},
+            {'name': '云计算', 'value': 29034},
+            {'name': '区块链', 'value': 104970},
+            {'name': '物联网', 'value': 131744}
+        ]
+    
+    latest_data = CollectionData.query.order_by(
+        CollectionData.saved_at.desc()
+    ).limit(10).all()
+    
+    latest_list = []
+    for data in latest_data:
+        latest_list.append({
+            'title': data.title,
+            'time': data.saved_at.strftime('%Y-%m-%d %H:%M:%S') if data.saved_at else '未知'
+        })
+    
+    return jsonify({
+        'stats': {
+            'total_collect': total_collect,
+            'success_rate': success_rate,
+            'total_sources': total_sources,
+            'total_keywords': total_keywords
+        },
+        'charts': {
+            'trend': trend_data,
+            'source': source_distribution,
+            'keyword': keyword_data
+        },
+        'latest': latest_list
+    })
 
 

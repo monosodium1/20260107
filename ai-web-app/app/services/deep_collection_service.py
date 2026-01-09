@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Callable
 from app.models import CollectionData, DeepCollectionData, AIModel
 from app.services.ai_client import AIClient
-from app import db
+from app import db, create_app
 import logging
 
 logger = logging.getLogger(__name__)
@@ -64,106 +64,114 @@ class DeepCollectionService:
             task_id: 任务ID
             progress_callback: 进度回调函数
         """
-        try:
-            ai_model = AIModel.query.get(ai_model_id)
-            if not ai_model:
-                logger.error(f"AI模型不存在: {ai_model_id}")
-                return
+        app = create_app()
+        
+        with app.app_context():
+            try:
+                ai_model = AIModel.query.get(ai_model_id)
+                if not ai_model:
+                    logger.error(f"AI模型不存在: {ai_model_id}")
+                    return
 
-            ai_client = AIClient(
-                api_url=ai_model.api_url,
-                api_key=ai_model.api_key,
-                model_name=ai_model.model_name,
-                system_prompt=ai_model.system_prompt
-            )
+                ai_client = AIClient(
+                    api_url=ai_model.api_url,
+                    api_key=ai_model.api_key,
+                    model_name=ai_model.model_name,
+                    system_prompt=ai_model.system_prompt
+                )
 
-            total = len(collection_data_ids)
-            completed = 0
-            failed = 0
+                total = len(collection_data_ids)
+                completed = 0
+                failed = 0
 
-            for idx, data_id in enumerate(collection_data_ids):
-                try:
-                    collection_data = CollectionData.query.get(data_id)
-                    if not collection_data:
-                        logger.warning(f"采集数据不存在: {data_id}")
+                for idx, data_id in enumerate(collection_data_ids):
+                    try:
+                        collection_data = CollectionData.query.get(data_id)
+                        if not collection_data:
+                            logger.warning(f"采集数据不存在: {data_id}")
+                            failed += 1
+                            continue
+
+                        deep_content, analysis_result, tokens_used = self._collect_with_ai(
+                            ai_client, collection_data
+                        )
+
+                        existing_deep = DeepCollectionData.query.filter_by(
+                            collection_data_id=data_id
+                        ).first()
+
+                        if existing_deep:
+                            existing_deep.deep_content = deep_content
+                            existing_deep.analysis_result = analysis_result
+                            existing_deep.ai_model_id = ai_model_id
+                            existing_deep.tokens_used = tokens_used
+                            existing_deep.collection_status = 'completed'
+                            existing_deep.error_message = None
+                            existing_deep.updated_at = datetime.utcnow()
+                        else:
+                            deep_collection = DeepCollectionData(
+                                collection_data_id=data_id,
+                                deep_content=deep_content,
+                                analysis_result=analysis_result,
+                                ai_model_id=ai_model_id,
+                                collection_status='completed',
+                                tokens_used=tokens_used
+                            )
+                            db.session.add(deep_collection)
+
+                        collection_data.has_deep_collected = True
+                        db.session.commit()
+
+                        completed += 1
+
+                        # 更新任务状态
+                        if task_id in self.active_tasks:
+                            self.active_tasks[task_id]['completed'] = completed
+                            self.active_tasks[task_id]['failed'] = failed
+
+                        if progress_callback:
+                            progress = {
+                                'current': idx + 1,
+                                'total': total,
+                                'completed': completed,
+                                'failed': failed,
+                                'percentage': int(((idx + 1) / total) * 100)
+                            }
+                            progress_callback(progress)
+
+                    except Exception as e:
+                        logger.error(f"深度采集失败 (ID: {data_id}): {str(e)}")
                         failed += 1
-                        continue
 
-                    deep_content, analysis_result, tokens_used = self._collect_with_ai(
-                        ai_client, collection_data
-                    )
+                        existing_deep = DeepCollectionData.query.filter_by(
+                            collection_data_id=data_id
+                        ).first()
 
-                    existing_deep = DeepCollectionData.query.filter_by(
-                        collection_data_id=data_id
-                    ).first()
+                        if existing_deep:
+                            existing_deep.collection_status = 'failed'
+                            existing_deep.error_message = str(e)
+                            existing_deep.updated_at = datetime.utcnow()
+                        else:
+                            deep_collection = DeepCollectionData(
+                                collection_data_id=data_id,
+                                collection_status='failed',
+                                error_message=str(e),
+                                ai_model_id=ai_model_id
+                            )
+                            db.session.add(deep_collection)
 
-                    if existing_deep:
-                        existing_deep.deep_content = deep_content
-                        existing_deep.analysis_result = analysis_result
-                        existing_deep.ai_model_id = ai_model_id
-                        existing_deep.tokens_used = tokens_used
-                        existing_deep.collection_status = 'completed'
-                        existing_deep.error_message = None
-                        existing_deep.updated_at = datetime.utcnow()
-                    else:
-                        deep_collection = DeepCollectionData(
-                            collection_data_id=data_id,
-                            deep_content=deep_content,
-                            analysis_result=analysis_result,
-                            ai_model_id=ai_model_id,
-                            collection_status='completed',
-                            tokens_used=tokens_used
-                        )
-                        db.session.add(deep_collection)
+                        db.session.commit()
 
-                    collection_data.has_deep_collected = True
-                    db.session.commit()
+                if task_id in self.active_tasks:
+                    self.active_tasks[task_id]['status'] = 'completed'
+                    self.active_tasks[task_id]['completed'] = completed
+                    self.active_tasks[task_id]['failed'] = failed
 
-                    completed += 1
-
-                    if progress_callback:
-                        progress = {
-                            'current': idx + 1,
-                            'total': total,
-                            'completed': completed,
-                            'failed': failed,
-                            'percentage': int(((idx + 1) / total) * 100)
-                        }
-                        progress_callback(progress)
-
-                except Exception as e:
-                    logger.error(f"深度采集失败 (ID: {data_id}): {str(e)}")
-                    failed += 1
-
-                    existing_deep = DeepCollectionData.query.filter_by(
-                        collection_data_id=data_id
-                    ).first()
-
-                    if existing_deep:
-                        existing_deep.collection_status = 'failed'
-                        existing_deep.error_message = str(e)
-                        existing_deep.updated_at = datetime.utcnow()
-                    else:
-                        deep_collection = DeepCollectionData(
-                            collection_data_id=data_id,
-                            collection_status='failed',
-                            error_message=str(e),
-                            ai_model_id=ai_model_id
-                        )
-                        db.session.add(deep_collection)
-
-                    db.session.commit()
-
-            if task_id in self.active_tasks:
-                self.active_tasks[task_id]['status'] = 'completed'
-                self.active_tasks[task_id]['completed'] = completed
-                self.active_tasks[task_id]['failed'] = failed
-
-        except Exception as e:
-            logger.error(f"深度采集任务执行失败: {str(e)}")
-            if task_id in self.active_tasks:
-                self.active_tasks[task_id]['status'] = 'failed'
-                self.active_tasks[task_id]['error'] = str(e)
+            except Exception as e:
+                logger.error(f"深度采集任务执行失败: {str(e)}")
+                if task_id in self.active_tasks:
+                    self.active_tasks[task_id]['status'] = 'failed'
+                    self.active_tasks[task_id]['error'] = str(e)
 
     def _collect_with_ai(self, ai_client: AIClient, collection_data: CollectionData) -> tuple:
         """
@@ -269,7 +277,18 @@ URL：{collection_data.url}
         Returns:
             任务状态字典
         """
-        return self.active_tasks.get(task_id)
+        task_info = self.active_tasks.get(task_id)
+        if task_info:
+            # 创建副本并移除不可序列化的thread对象
+            status = {
+                'status': task_info.get('status'),
+                'total': task_info.get('total', 0),
+                'completed': task_info.get('completed', 0),
+                'failed': task_info.get('failed', 0),
+                'error': task_info.get('error')
+            }
+            return status
+        return None
 
     def get_deep_collections(self, page: int = 1, per_page: int = 10, 
                          search_query: Optional[str] = None) -> Dict:

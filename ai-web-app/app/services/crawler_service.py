@@ -16,6 +16,7 @@ from datetime import datetime
 from app.models import CrawlerSource, CrawlerTask, CrawlerData
 from app.services.universal_crawler import create_crawler
 from app import db
+from app import create_app
 
 
 class CrawlerService:
@@ -23,6 +24,7 @@ class CrawlerService:
 
     def __init__(self):
         self.active_tasks = {}
+        self.crawler_pool = {}
 
     def create_source(self, name, source_type, url=None, description=None, method='GET', 
                    headers=None, body_template=None, data_selector=None,
@@ -82,6 +84,21 @@ class CrawlerService:
         if status:
             query = query.filter_by(status=status)
         return query.all()
+
+    def get_sources_count(self, status=None):
+        """
+        获取爬虫源数量
+
+        Args:
+            status: 状态过滤
+
+        Returns:
+            源数量
+        """
+        query = CrawlerSource.query
+        if status:
+            query = query.filter_by(status=status)
+        return query.count()
 
     def get_source(self, source_id):
         """获取单个爬虫源"""
@@ -180,82 +197,93 @@ class CrawlerService:
         task.progress = 0
         db.session.commit()
 
-        thread = threading.Thread(target=self._execute_task, args=(task,))
+        thread = threading.Thread(target=self._execute_task, args=(task_id,))
         thread.daemon = True
         thread.start()
 
         self.active_tasks[task_id] = thread
         return True
 
-    def _execute_task(self, task):
+    def _execute_task(self, task_id):
         """
         执行任务的具体逻辑
 
         Args:
-            task: 任务对象
+            task_id: 任务ID
         """
-        try:
-            source = task.source
-            crawler = None
+        app = create_app()
+        with app.app_context():
+            try:
+                task = CrawlerTask.query.get(task_id)
+                
+                if not task:
+                    return
+                
+                source = task.source
+                crawler = None
 
-            source_config = {
-                'name': source.name,
-                'source_type': source.source_type,
-                'url': source.url,
-                'method': source.method,
-                'headers': source.headers,
-                'body_template': source.body_template,
-                'data_selector': source.data_selector,
-                'title_selector': source.title_selector,
-                'url_selector': source.url_selector,
-                'summary_selector': source.summary_selector,
-                'image_selector': source.image_selector,
-                'config': source.config
-            }
+                # 尝试从池中获取已存在的爬虫实例
+                if source.id in self.crawler_pool:
+                    crawler = self.crawler_pool[source.id]
+                else:
+                    source_config = {
+                        'name': source.name,
+                        'source_type': source.source_type,
+                        'url': source.url,
+                        'method': source.method,
+                        'headers': source.headers,
+                        'body_template': source.body_template,
+                        'data_selector': source.data_selector,
+                        'title_selector': source.title_selector,
+                        'url_selector': source.url_selector,
+                        'summary_selector': source.summary_selector,
+                        'image_selector': source.image_selector,
+                        'config': source.config
+                    }
 
-            crawler = create_crawler(source_config)
+                    crawler = create_crawler(source_config)
+                    self.crawler_pool[source.id] = crawler
 
-            results = []
-            total_pages = task.pages
+                results = []
+                total_pages = task.pages
 
-            for page in range(1, total_pages + 1):
-                page_results = crawler.crawl(task.keyword, page, task.limit)
-                results.extend(page_results)
+                for page in range(1, total_pages + 1):
+                    page_results = crawler.crawl(task.keyword, page, task.limit)
+                    results.extend(page_results)
 
-                progress = int((page / total_pages) * 100)
-                task.progress = progress
-                task.result_count = len(results)
+                    progress = int((page / total_pages) * 100)
+                    task.progress = progress
+                    task.result_count = len(results)
+                    db.session.commit()
+
+                for result in results:
+                    data = CrawlerData(
+                        task_id=task.id,
+                        title=result.get('title', ''),
+                        url=result.get('url', ''),
+                        summary=result.get('summary', ''),
+                        info=result.get('image', ''),
+                        source=result.get('source', ''),
+                        raw_data=json.dumps(result, ensure_ascii=False)
+                    )
+                    db.session.add(data)
+
+                task.status = 'completed'
+                task.completed_at = datetime.utcnow()
+                task.progress = 100
                 db.session.commit()
 
-            for result in results:
-                data = CrawlerData(
-                    task_id=task.id,
-                    title=result.get('title', ''),
-                    url=result.get('url', ''),
-                    summary=result.get('summary', ''),
-                    info=result.get('image', ''),
-                    source=result.get('source', ''),
-                    raw_data=json.dumps(result, ensure_ascii=False)
-                )
-                db.session.add(data)
+            except Exception as e:
+                task = CrawlerTask.query.get(task_id)
+                if task:
+                    task.status = 'failed'
+                    task.error_message = str(e)
+                    task.completed_at = datetime.utcnow()
+                    db.session.commit()
 
-            task.status = 'completed'
-            task.completed_at = datetime.utcnow()
-            task.progress = 100
-            db.session.commit()
-
-            if crawler:
-                crawler.close()
-
-        except Exception as e:
-            task.status = 'failed'
-            task.error_message = str(e)
-            task.completed_at = datetime.utcnow()
-            db.session.commit()
-
-        finally:
-            if task_id in self.active_tasks:
-                del self.active_tasks[task_id]
+            finally:
+                if task_id in self.active_tasks:
+                    del self.active_tasks[task_id]
 
     def stop_task(self, task_id):
         """
@@ -291,6 +319,27 @@ class CrawlerService:
             数据列表
         """
         query = CrawlerData.query.filter_by(task_id=task_id)
+        query = query.order_by(CrawlerData.created_at.desc())
+        
+        if limit:
+            query = query.limit(limit)
+        if offset:
+            query = query.offset(offset)
+        
+        return query.all()
+
+    def get_all_data(self, limit=None, offset=0):
+        """
+        获取所有爬虫数据
+
+        Args:
+            limit: 限制数量
+            offset: 偏移量
+
+        Returns:
+            数据列表
+        """
+        query = CrawlerData.query
         query = query.order_by(CrawlerData.created_at.desc())
         
         if limit:

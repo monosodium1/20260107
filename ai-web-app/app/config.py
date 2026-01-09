@@ -11,6 +11,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     SESSION_TYPE = 'filesystem'
+    SESSION_FILE_DIR = os.path.join(BASE_DIR, 'flask_session')
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
     
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY') or 'your-openai-api-key'

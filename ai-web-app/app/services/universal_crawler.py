@@ -31,7 +31,7 @@ class UniversalCrawler:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive',
         }
         default_headers.update(headers)
@@ -380,6 +380,11 @@ def create_crawler(source_config: Dict) -> UniversalCrawler:
     source_type = source_config.get('source_type', 'custom')
     
     if source_type == 'baidu':
-        return BaiduCrawler()
+        try:
+            from app.services.baidu_selenium_crawler import BaiduSeleniumCrawler
+            return BaiduSeleniumCrawler()
+        except ImportError:
+            logger.warning("Selenium未安装，使用通用爬虫")
+            return BaiduCrawler()
     else:
         return UniversalCrawler(source_config)

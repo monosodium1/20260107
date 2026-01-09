@@ -2,6 +2,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_socketio import SocketIO
+from flask_session import Session
 import os
 import logging
 from logging.handlers import RotatingFileHandler
@@ -9,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 db = SQLAlchemy()
 login_manager = LoginManager()
 socketio = SocketIO()
+server_session = Session()
 
 def create_app(config_name='default'):
     app = Flask(__name__)
@@ -20,6 +22,8 @@ def create_app(config_name='default'):
     login_manager.init_app(app)
     login_manager.login_view = 'main.login'
     login_manager.login_message = '请先登录'
+    
+    server_session.init_app(app)
     
     socketio.init_app(app, async_mode=app.config['SOCKETIO_ASYNC_MODE'],
                       cors_allowed_origins=app.config['SOCKETIO_CORS_ALLOWED_ORIGINS'])

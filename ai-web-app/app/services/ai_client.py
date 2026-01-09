@@ -15,12 +15,18 @@ class AIClient:
             model_name: 模型名称
             system_prompt: 系统提示词
         """
-        self.api_url = api_url
+        self.api_url = api_url.rstrip('/')
         self.api_key = api_key
         self.model_name = model_name
         self.system_prompt = system_prompt or "你是一个智能助手，请根据用户的问题提供准确、有用的回答。"
+        
+        # 检查URL是否已经包含完整路径
+        if not self.api_url.endswith('/chat/completions'):
+            self.chat_endpoint = f'{self.api_url}/chat/completions'
+        else:
+            self.chat_endpoint = self.api_url
 
-    def chat(self, messages, temperature=0.7, max_tokens=2000):
+    def chat(self, messages, temperature=0.7, max_tokens=2000, timeout=120):
         """
         聊天对话
 
@@ -28,6 +34,7 @@ class AIClient:
             messages: 消息列表
             temperature: 温度参数
             max_tokens: 最大token数
+            timeout: 超时时间（秒），默认120秒
 
         Returns:
             dict: 包含响应和token使用情况的字典
@@ -57,13 +64,20 @@ class AIClient:
         }
 
         try:
+            print(f"正在请求API: {self.chat_endpoint}")
+            print(f"模型名称: {self.model_name}")
+            print(f"超时设置: {timeout}秒")
+            print(f"请求数据: {json.dumps(data, ensure_ascii=False)[:200]}...")
+            
             response = requests.post(
-                f'{self.api_url}/chat/completions',
+                self.chat_endpoint,
                 headers=headers,
                 json=data,
-                timeout=60
+                timeout=timeout
             )
-
+            
+            print(f"响应状态码: {response.status_code}")
+            
             if response.status_code == 200:
                 result = response.json()
                 

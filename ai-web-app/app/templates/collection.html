@@ -123,7 +123,7 @@
                 <h2 class="text-xl text-blue-300 mb-4 flex items-center">
                     <i class="fas fa-search mr-2"></i> 关键字输入
                 </h2>
-                <div class="flex gap-4">
+                <div class="flex gap-4 mb-4">
                     <input type="text" id="keywordInput" placeholder="请输入搜索关键词..." 
                         class="flex-1 p-4 border border-gray-600 rounded-lg bg-gray-800 text-white text-lg focus:outline-none focus:border-blue-500">
                     <button id="startCollectionBtn" onclick="startCollection()" 
@@ -134,6 +134,30 @@
                         class="tech-button px-8 py-4 rounded-lg text-white font-semibold flex items-center hidden">
                         <i class="fas fa-stop mr-2"></i> 停止采集
                     </button>
+                </div>
+                <div class="flex gap-6 items-center text-gray-300">
+                    <div class="flex items-center gap-2">
+                        <label for="pageCount" class="text-sm">采集页数:</label>
+                        <select id="pageCount" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                            <option value="1">1页</option>
+                            <option value="2">2页</option>
+                            <option value="3" selected>3页</option>
+                            <option value="5">5页</option>
+                            <option value="10">10页</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label for="perPageCount" class="text-sm">每页结果:</label>
+                        <select id="perPageCount" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-blue-500">
+                            <option value="5">5条</option>
+                            <option value="10" selected>10条</option>
+                            <option value="20">20条</option>
+                            <option value="30">30条</option>
+                        </select>
+                    </div>
+                    <div class="text-sm text-gray-400">
+                        预计采集: <span id="totalEstimate" class="text-blue-400 font-semibold">30</span> 条
+                    </div>
                 </div>
             </div>
 
@@ -255,6 +279,12 @@
                 return;
             }
 
+            // 获取用户选择的采集参数
+            const pages = parseInt($('#pageCount').val());
+            const limit = parseInt($('#perPageCount').val());
+            
+            console.log(`开始采集: 关键词="${keyword}", 页数=${pages}, 每页=${limit}, 预计总计=${pages * limit}条`);
+
             isCollecting = true;
             collectedData = [];
             selectedData.clear();
@@ -268,8 +298,8 @@
                 keyword: keyword,
                 source_ids: JSON.stringify(selectedSources),
                 page: 1,
-                pages: 1,
-                limit: 10
+                pages: pages,
+                limit: limit
             }, function(response) {
                 const collectionId = response.collection_id;
                 startSSE(collectionId);
@@ -283,7 +313,9 @@
             eventSource = new EventSource(`/api/collection/stream?collection_id=${collectionId}`);
 
             eventSource.onmessage = function(event) {
+                console.log('📨 收到SSE数据:', event.data);
                 const data = JSON.parse(event.data);
+                console.log('📦 解析后的数据:', data);
                 
                 if (data.type === 'completed') {
                     stopCollection();
@@ -339,10 +371,6 @@
                     </div>
                 </div>
             `;
-
-            if ($('#dataGrid').find('.text-gray-400').length > 0) {
-                $('#dataGrid').empty();
-            }
 
             $('#dataGrid').append(cardHtml);
             $('#dataCount').text(`(${collectedData.length}条)`);
@@ -412,6 +440,14 @@
                 scrollTop: $(document).height()
             }, 300);
         }
+
+        // 监听采集参数变化，实时更新预计采集数量
+        $('#pageCount, #perPageCount').on('change', function() {
+            const pages = parseInt($('#pageCount').val());
+            const limit = parseInt($('#perPageCount').val());
+            const total = pages * limit;
+            $('#totalEstimate').text(total);
+        });
 
         $(window).scroll(function() {
             const scrollPosition = $(window).scrollTop();

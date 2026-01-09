@@ -112,6 +112,7 @@
                             <th class="text-left py-3 px-4 w-12">
                                 <input type="checkbox" id="selectAllCheckbox" class="data-checkbox" onchange="toggleSelectAll()">
                             </th>
+                            <th class="text-left py-3 px-4 text-gray-400">封面</th>
                             <th class="text-left py-3 px-4 text-gray-400">标题</th>
                             <th class="text-left py-3 px-4 text-gray-400">来源</th>
                             <th class="text-left py-3 px-4 text-gray-400">关键词</th>
@@ -122,7 +123,7 @@
                     </thead>
                     <tbody id="dataTable">
                         <tr>
-                            <td colspan="7" class="text-center py-12 text-gray-400">
+                            <td colspan="8" class="text-center py-12 text-gray-400">
                                 <i class="fas fa-spinner fa-spin text-3xl mb-4"></i>
                                 <p>加载中...</p>
                             </td>
@@ -233,7 +234,7 @@
                 if (data.data.length === 0) {
                     $('#dataTable').html(`
                         <tr>
-                            <td colspan="7" class="text-center py-12 text-gray-400">
+                            <td colspan="8" class="text-center py-12 text-gray-400">
                                 <i class="fas fa-inbox text-6xl mb-4 opacity-50"></i>
                                 <p>暂无数据</p>
                             </td>
@@ -242,27 +243,39 @@
                 } else {
                     let html = '';
                     data.data.forEach(function(item) {
+                        const title = item.title || '无标题';
+                        const displayTitle = title.length > 100 ? title.substring(0, 100) + '...' : title;
+                        const url = item.url || '#';
+                        const source = item.source || '-';
+                        const keyword = item.keyword || '-';
+                        const imageUrl = item.image_url || '';
+                        const collectedAt = item.collected_at || '-';
+                        const savedAt = item.saved_at || '-';
+                        
                         html += `
                             <tr class="border-b border-blue-800 hover:bg-blue-900/30 transition-colors">
                                 <td class="py-3 px-4">
                                     <input type="checkbox" class="data-checkbox" value="${item.id}" onchange="toggleSelect(${item.id})">
                                 </td>
                                 <td class="py-3 px-4">
+                                    ${imageUrl ? `<img src="${imageUrl}" alt="封面" class="w-16 h-16 object-cover rounded-lg border border-blue-700" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2264%22 height=%2264%22 viewBox=%220 0 64 64%22%3E%3Crect width=%2264%22 height=%2264%22 fill=%22%231e3a5f%22/%3E%3Ctext x=%2232%22 y=%2236%22 text-anchor=%22middle%22 fill=%22%236b7280%22 font-size=%2224%22%3E🖼️%3C/text%3E%3C/svg%3E'">` : '<div class="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 text-2xl">🖼️</div>'}
+                                </td>
+                                <td class="py-3 px-4">
                                     <div class="max-w-md">
-                                        <a href="${item.url}" target="_blank" class="text-blue-400 hover:text-blue-300 font-medium" title="${item.title}">
-                                            ${item.title.substring(0, 100)}${item.title.length > 100 ? '...' : ''}
+                                        <a href="${url}" target="_blank" class="text-blue-400 hover:text-blue-300 font-medium" title="${title}">
+                                            ${displayTitle}
                                         </a>
                                     </div>
                                 </td>
-                                <td class="py-3 px-4 text-gray-300">${item.source || '-'}</td>
-                                <td class="py-3 px-4 text-gray-300">${item.keyword || '-'}</td>
+                                <td class="py-3 px-4 text-gray-300">${source}</td>
+                                <td class="py-3 px-4 text-gray-300">${keyword}</td>
                                 <td class="py-3 px-4 text-gray-300">
                                     <div class="flex items-center gap-2">
-                                        ${item.collected_at || '-'}
+                                        ${collectedAt}
                                         ${item.has_deep_collected ? '<span class="px-2 py-1 bg-green-600 text-white text-xs rounded">已深度采集</span>' : ''}
                                     </div>
                                 </td>
-                                <td class="py-3 px-4 text-gray-300">${item.saved_at || '-'}</td>
+                                <td class="py-3 px-4 text-gray-300">${savedAt}</td>
                                 <td class="py-3 px-4">
                                     <div class="flex gap-2">
                                         <button onclick="deleteData(${item.id})" class="action-btn bg-red-600 hover:bg-red-700 text-white text-xs" title="删除">
@@ -297,7 +310,7 @@
             let html = '';
             
             html += `<button onclick="goToPage(1)" class="pagination-btn ${currentPage === 1 ? 'active' : 'bg-gray-700 text-white'}" ${currentPage === 1 ? 'disabled' : ''}>首页</button>`;
-            html += `<button onclick="goToPage(${currentPage - 1})" class="pagination-btn bg-gray-700 text-white" ${!data.has_prev ? 'disabled' : ''}>上一页</button>`;
+            html += `<button onclick="goToPage(${currentPage - 1})" class="pagination-btn bg-gray-700 text-white" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
             
             let startPage = Math.max(1, currentPage - 2);
             let endPage = Math.min(totalPages, currentPage + 2);
@@ -314,7 +327,7 @@
                 html += `<span class="px-2 text-gray-400">...</span>`;
             }
             
-            html += `<button onclick="goToPage(${currentPage + 1})" class="pagination-btn bg-gray-700 text-white" ${!data.has_next ? 'disabled' : ''}>下一页</button>`;
+            html += `<button onclick="goToPage(${currentPage + 1})" class="pagination-btn bg-gray-700 text-white" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
             html += `<button onclick="goToPage(${totalPages})" class="pagination-btn ${currentPage === totalPages ? 'active' : 'bg-gray-700 text-white'}" ${currentPage === totalPages ? 'disabled' : ''}>末页</button>`;
             
             $('#pagination').html(html);
@@ -479,20 +492,46 @@
         }
 
         function loadAIModels() {
+            console.log('正在加载AI模型...');
             $.get('/api/ai-models', function(data) {
+                console.log('AI模型数据:', data);
+                
+                if (!data || !data.models) {
+                    console.error('AI模型数据格式错误:', data);
+                    $('#deepCollectModelSelect').html('<option value="">暂无可用AI模型</option>');
+                    return;
+                }
+                
                 let html = '';
                 data.models.forEach(function(model) {
+                    console.log('处理模型:', model);
                     if (model.status === 'active') {
-                        html += `<option value="${model.id}">${model.name}</option>`;
+                        const modelId = model.id || '';
+                        const modelName = model.name || '未命名模型';
+                        html += `<option value="${modelId}">${modelName}</option>`;
                     }
                 });
+                
+                if (html === '') {
+                    html = '<option value="">暂无活跃的AI模型</option>';
+                }
+                
+                console.log('生成的HTML:', html);
                 $('#deepCollectModelSelect').html(html);
+            }).fail(function(xhr, status, error) {
+                console.error('加载AI模型失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+                $('#deepCollectModelSelect').html('<option value="">加载失败，请重试</option>');
             });
         }
 
         function startDeepCollection() {
+            console.log('开始深度采集...');
             const dataIds = JSON.parse($('#deepCollectDataIds').val());
             const modelId = $('#deepCollectModelSelect').val();
+
+            console.log('数据IDs:', dataIds);
+            console.log('选择的模型ID:', modelId);
 
             if (!modelId) {
                 alert('请选择AI模型');
@@ -511,15 +550,22 @@
                     ai_model_id: parseInt(modelId)
                 }),
                 success: function(response) {
-                    if (response.success) {
+                    console.log('深度采集启动响应:', response);
+                    
+                    // 检查响应格式
+                    if (response.task_id || response.status === 'started') {
                         const taskId = response.task_id;
+                        console.log('任务ID:', taskId);
                         pollProgress(taskId);
                     } else {
-                        alert(response.message);
+                        console.error('启动失败:', response.message || response);
+                        alert(response.message || '启动深度采集失败');
                         closeProgressModal();
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.error('启动深度采集请求失败:', status, error);
+                    console.error('响应内容:', xhr.responseText);
                     alert('启动深度采集失败，请重试');
                     closeProgressModal();
                 }
@@ -527,26 +573,45 @@
         }
 
         function pollProgress(taskId) {
+            console.log('开始轮询进度，任务ID:', taskId);
             const interval = setInterval(function() {
                 $.get('/api/deep-collection/status/' + taskId, function(response) {
+                    console.log('进度响应:', response);
+                    
                     if (response.success) {
                         const status = response.status;
+                        console.log('状态详情:', status);
                         updateProgress(status);
 
                         if (status.status === 'completed' || status.status === 'failed') {
                             clearInterval(interval);
                             showCompletionReport(status);
                         }
+                    } else {
+                        console.error('进度查询失败:', response);
                     }
+                }).fail(function(xhr, status, error) {
+                    console.error('进度查询请求失败:', status, error);
+                    console.error('响应内容:', xhr.responseText);
                 });
             }, 2000);
         }
 
         function updateProgress(status) {
-            const percentage = status.percentage || 0;
+            console.log('更新进度，接收到的status:', status);
+            
+            // 确保status是对象
+            if (!status || typeof status !== 'object') {
+                console.error('status参数无效:', status);
+                return;
+            }
+            
+            const total = status.total || 0;
             const completed = status.completed || 0;
             const failed = status.failed || 0;
-            const total = status.total || 0;
+            const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            console.log('进度数据 - 总计:', total, '完成:', completed, '失败:', failed, '百分比:', percentage);
 
             $('#progressBar').css('width', percentage + '%');
             $('#progressText').text(`${completed}/${total} (${percentage}%)`);
@@ -565,12 +630,15 @@
         }
 
         function showCompletionReport(status) {
+            console.log('显示完成报告，状态:', status);
             closeProgressModal();
 
             const isSuccess = status.status === 'completed';
             const completed = status.completed || 0;
             const failed = status.failed || 0;
             const total = status.total || 0;
+
+            console.log('报告数据 - 成功:', isSuccess, '完成:', completed, '失败:', failed, '总计:', total);
 
             let html = `
                 <div class="text-center mb-6">

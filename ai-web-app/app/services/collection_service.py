@@ -18,6 +18,7 @@ except ImportError:
 from app.models import CrawlerSource, CollectionData
 from app.services.universal_crawler import create_crawler
 from app import db
+from app import create_app
 
 
 class CollectionService:
@@ -26,6 +27,7 @@ class CollectionService:
     def __init__(self):
         self.active_collections = {}
         self.data_queues = {}
+        self.crawler_pool = {}
 
     def get_available_sources(self):
         """
@@ -84,76 +86,83 @@ class CollectionService:
             pages: 总页数
             limit: 每页数量
         """
-        try:
-            for source_id in source_ids:
-                source = CrawlerSource.query.get(source_id)
-                if not source or source.status != 'active':
-                    continue
+        app = create_app()
+        with app.app_context():
+            try:
+                for source_id in source_ids:
+                    source = CrawlerSource.query.get(source_id)
+                    if not source or source.status != 'active':
+                        continue
 
-                crawler = None
-                try:
-                    source_config = {
-                        'name': source.name,
-                        'source_type': source.source_type,
-                        'url': source.url,
-                        'method': source.method,
-                        'headers': source.headers,
-                        'body_template': source.body_template,
-                        'data_selector': source.data_selector,
-                        'title_selector': source.title_selector,
-                        'url_selector': source.url_selector,
-                        'summary_selector': source.summary_selector,
-                        'image_selector': source.image_selector,
-                        'config': source.config
-                    }
-
-                    crawler = create_crawler(source_config)
-
-                    for current_page in range(page, page + pages):
-                        results = crawler.crawl(keyword, current_page, limit)
-                        
-                        for result in results:
-                            data_item = {
-                                'collection_id': collection_id,
-                                'title': result.get('title', ''),
-                                'url': result.get('url', ''),
-                                'summary': result.get('summary', ''),
-                                'source': result.get('source', ''),
-                                'image_url': self._extract_image(result),
-                                'keyword': keyword,
+                    crawler = None
+                    try:
+                        # 尝试从池中获取已存在的爬虫实例
+                        if source.id in self.crawler_pool:
+                            crawler = self.crawler_pool[source.id]
+                            print(f"✅ 从池中获取爬虫: {source.name}")
+                        else:
+                            source_config = {
+                                'name': source.name,
                                 'source_type': source.source_type,
-                                'source_name': source.name,
-                                'collected_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
-                                'raw_data': json.dumps(result, ensure_ascii=False)
+                                'url': source.url,
+                                'method': source.method,
+                                'headers': source.headers,
+                                'body_template': source.body_template,
+                                'data_selector': source.data_selector,
+                                'title_selector': source.title_selector,
+                                'url_selector': source.url_selector,
+                                'summary_selector': source.summary_selector,
+                                'image_selector': source.image_selector,
+                                'config': source.config
                             }
+
+                            crawler = create_crawler(source_config)
+                            self.crawler_pool[source.id] = crawler
+                            print(f"✅ 创建新爬虫: {source.name} (类型: {type(crawler).__name__})")
+
+                        for current_page in range(page, page + pages):
+                            print(f"🔍 开始爬取第 {current_page} 页...")
+                            page_results = crawler.crawl(keyword, current_page, limit)
+                            print(f"📊 第 {current_page} 页获取到 {len(page_results)} 条结果")
                             
-                            self.data_queues[collection_id].put(data_item)
-                            time.sleep(0.1)
+                            for result in page_results:
+                                data_item = {
+                                    'collection_id': collection_id,
+                                    'title': result.get('title', ''),
+                                    'url': result.get('url', ''),
+                                    'summary': result.get('summary', ''),
+                                    'source': result.get('source', ''),
+                                    'image_url': self._extract_image(result),
+                                    'keyword': keyword,
+                                    'source_type': source.source_type,
+                                    'source_name': source.name,
+                                    'collected_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+                                    'raw_data': json.dumps(result, ensure_ascii=False)
+                                }
+                                
+                                self.data_queues[collection_id].put(data_item)
+                                print(f"✅ 推送数据到队列: {data_item['title']}")
 
-                except Exception as e:
-                    error_data = {
-                        'collection_id': collection_id,
-                        'error': str(e),
-                        'source_name': source.name if source else 'Unknown'
-                    }
-                    self.data_queues[collection_id].put(error_data)
-                
-                finally:
-                    if crawler:
-                        crawler.close()
+                    except Exception as e:
+                        error_data = {
+                            'collection_id': collection_id,
+                            'error': str(e),
+                            'source_name': source.name if source else 'Unknown'
+                        }
+                        self.data_queues[collection_id].put(error_data)
+                    
+                self.data_queues[collection_id].put({'type': 'completed', 'collection_id': collection_id})
 
-            self.data_queues[collection_id].put({'type': 'completed', 'collection_id': collection_id})
+            except Exception as e:
+                self.data_queues[collection_id].put({
+                    'type': 'error',
+                    'collection_id': collection_id,
+                    'error': str(e)
+                })
 
-        except Exception as e:
-            self.data_queues[collection_id].put({
-                'type': 'error',
-                'collection_id': collection_id,
-                'error': str(e)
-            })
-
-        finally:
-            if collection_id in self.active_collections:
-                self.active_collections[collection_id]['status'] = 'completed'
+            finally:
+                if collection_id in self.active_collections:
+                    self.active_collections[collection_id]['status'] = 'completed'
 
     def _extract_image(self, result):
         """
@@ -165,14 +174,21 @@ class CollectionService:
         Returns:
             图片URL或默认图片
         """
+        # 首先检查爬虫是否直接返回了图片URL
+        image_url = result.get('image', '')
+        if image_url:
+            return image_url
+        
+        # 如果没有，尝试从摘要中提取图片URL
         summary = result.get('summary', '')
         if 'jpg' in summary or 'png' in summary or 'jpeg' in summary:
             import re
-            img_urls = re.findall(r'https?://[^\s]+\.(?:jpg|png|jpeg|gif)', summary)
+            img_urls = re.findall(r'https?://[^\s]+\.(?:jpg|png|jpeg|gif|webp)', summary)
             if img_urls:
                 return img_urls[0]
         
-        return '/static/images/default-cover.png'
+        # 返回空字符串，让前端显示默认图标
+        return ''
 
     def get_collection_data(self, collection_id):
         """
